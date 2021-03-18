@@ -39,13 +39,11 @@ import { ZSTDDecoder } from '../libs/zstddec.module.js';
 /////////////////////
 // HUBS CHANGES
 ////////////////////
-// 
 // - Use THREE.Math.isPowerOfTwo instaed of newer MathUtils.isPowerOfTwo as it does not exist on our branch
 // - Don't assume MSC_TRANSCODER global, load it here
-// - intercept loading ofr msc_basis_transcoder.wasm to use webpack resolution (this is to handle content hashing of locally served assets)
+// - intercept loading of msc_basis_transcoder.wasm to use webpack resolution (this is to handle content hashing of locally served assets)
 import MSC_TRANSCODER from '../../js/libs/basis/msc_basis_transcoder.js';
 import wasmUrl from '../../js/libs/basis/msc_basis_transcoder.wasm';
-//
 ////////////////////
 
 
@@ -118,15 +116,21 @@ class KTX2Loader extends CompressedTextureLoader {
 		// initialization to return a native Promise.
 		scope.basisModulePending = new Promise( function ( resolve ) {
 
-		MSC_TRANSCODER({
-			// HUBS Change, intercept wasm file loading for content hashing
-			locateFile(path) {
-				if (path.endsWith("msc_basis_transcoder.wasm")) {
-					return wasmUrl;
+			MSC_TRANSCODER( {
+				// HUBS Change, intercept wasm file loading for content hashing
+				locateFile( path ) {
+
+					if ( path.endsWith( "msc_basis_transcoder.wasm" ) ) {
+
+						return wasmUrl;
+
+					}
+
+					return path;
+
 				}
-				return path;
-			}
-		}). then( function ( basisModule ) { // eslint-disable-line no-undef
+
+			} ).then( function ( basisModule ) { // eslint-disable-line no-undef
 
 				scope.basisModule = basisModule;
 
