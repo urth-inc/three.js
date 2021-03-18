@@ -45,7 +45,6 @@ import { ZSTDDecoder } from '../libs/zstddec.module.js';
 // - intercept loading ofr msc_basis_transcoder.wasm to use webpack resolution (this is to handle content hashing of locally served assets)
 import MSC_TRANSCODER from '../../js/libs/basis/msc_basis_transcoder.js';
 import wasmUrl from '../../js/libs/basis/msc_basis_transcoder.wasm';
-console.log(MSC_TRANSCODER, wasmUrl)
 //
 ////////////////////
 
@@ -497,7 +496,6 @@ class KTX2Container {
 
 
 		var targetFormat;
-		console.log(config)
 
 		if ( config.astcSupported ) {
 
@@ -537,7 +535,6 @@ class KTX2Container {
 			this.transcodedFormat = RGBAFormat;
 
 		}
-		console.log(this.transcodedFormat)
 
 		if ( ! this.basisModule.isFormatSupported( targetFormat, texFormat ) ) {
 
