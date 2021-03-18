@@ -247,8 +247,10 @@ THREE.GLTFLoader = ( function () {
 							extensions[ extensionName ] = new GLTFKHRBasisTextureExtension( this.ktx2loader );
 							break;
 
+						// TODO we eventaully want to remove support for this
 						case EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS:
 							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.basisTextureLoader );
+							console.warn( `The ${EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS} extension is deprecated, you should use ${EXTENSIONS.KHR_TEXTURE_BASISU} instead` );
 							break;
 
 						case EXTENSIONS.MSFT_TEXTURE_DDS:
@@ -349,6 +351,7 @@ THREE.GLTFLoader = ( function () {
 		KHR_TEXTURE_TRANSFORM: 'KHR_texture_transform',
 		KHR_MESH_QUANTIZATION: 'KHR_mesh_quantization',
 		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		// TODO we eventually want to remove suport for this in favor of the KHR extension
 		MOZ_HUBS_TEXTURE_BASIS: "MOZ_HUBS_texture_basis",
 		KHR_TEXTURE_BASISU: "KHR_texture_basisu"
 	};
@@ -2018,14 +2021,22 @@ THREE.GLTFLoader = ( function () {
 
 			if ( ! loader ) {
 
-				if(textureExtensions[EXTENSIONS.MSFT_TEXTURE_DDS ]) {
-					loader = parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader
-				} else if(textureExtensions[ EXTENSIONS.KHR_TEXTURE_BASISU ]){
-					loader = parser.extensions[ EXTENSIONS.KHR_TEXTURE_BASISU ].ktx2loader
-				} else if(textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ]){
-					loader = parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader
+				if ( textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader;
+
+				} else if ( textureExtensions[ EXTENSIONS.KHR_TEXTURE_BASISU ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.KHR_TEXTURE_BASISU ].ktx2loader;
+
+				} else if ( textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader;
+
 				} else {
+
 					loader = textureLoader;
+
 				}
 
 			}
