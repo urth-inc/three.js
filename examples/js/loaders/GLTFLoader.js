@@ -13,7 +13,6 @@ THREE.GLTFLoader = ( function () {
 		THREE.Loader.call( this, manager );
 
 		this.dracoLoader = null;
-		this.basisTextureLoader = null;
 		this.ktx2loader = null;
 		this.revokeObjectURLs = true;
 		this.ddsLoader = null;
@@ -54,13 +53,6 @@ THREE.GLTFLoader = ( function () {
 		setDRACOLoader: function ( dracoLoader ) {
 
 			this.dracoLoader = dracoLoader;
-			return this;
-
-		},
-
-		setBasisTextureLoader: function ( loader ) {
-
-			this.basisTextureLoader = loader;
 			return this;
 
 		},
@@ -249,7 +241,7 @@ THREE.GLTFLoader = ( function () {
 
 						// TODO we eventaully want to remove support for this
 						case EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS:
-							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.basisTextureLoader );
+							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.ktx2loader && this.ktx2loader.basisLoader );
 							console.warn( `The ${EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS} extension is deprecated, you should use ${EXTENSIONS.KHR_TEXTURE_BASISU} instead` );
 							break;
 
@@ -567,11 +559,11 @@ THREE.GLTFLoader = ( function () {
 
 		if ( ! loader ) {
 
-			throw new Error( 'THREE.GLTFLoader: No HubsBasisTextureLoader instance provided.' );
+			throw new Error( 'THREE.GLTFLoader: No BasisTextureLoader exists on the KTX2Loader or no KTX2Loader instance was provided.' );
 
 		}
 
-		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS
+		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS;
 		this.basisTextureLoader = loader;
 
 	}
@@ -584,7 +576,7 @@ THREE.GLTFLoader = ( function () {
 
 		}
 
-		this.name = EXTENSIONS.KHR_TEXTURE_BASISU
+		this.name = EXTENSIONS.KHR_TEXTURE_BASISU;
 		this.ktx2loader = loader;
 
 	}
