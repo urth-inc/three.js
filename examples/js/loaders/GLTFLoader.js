@@ -13,7 +13,7 @@ THREE.GLTFLoader = ( function () {
 		THREE.Loader.call( this, manager );
 
 		this.dracoLoader = null;
-		this.basisTextureLoader = null;
+		this.ktx2loader = null;
 		this.revokeObjectURLs = true;
 		this.ddsLoader = null;
 
@@ -57,9 +57,9 @@ THREE.GLTFLoader = ( function () {
 
 		},
 
-		setBasisTextureLoader: function ( loader ) {
+		setKTX2Loader: function ( loader ) {
 
-			this.basisTextureLoader = loader;
+			this.ktx2loader = loader;
 			return this;
 
 		},
@@ -235,8 +235,14 @@ THREE.GLTFLoader = ( function () {
 							extensions[ extensionName ] = new GLTFDracoMeshCompressionExtension( json, this.dracoLoader );
 							break;
 
+						case EXTENSIONS.KHR_TEXTURE_BASISU:
+							extensions[ extensionName ] = new GLTFKHRBasisTextureExtension( this.ktx2loader );
+							break;
+
+						// TODO we eventaully want to remove support for this
 						case EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS:
-							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.basisTextureLoader );
+							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.ktx2loader && this.ktx2loader.basisLoader );
+							console.warn( `The ${EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS} extension is deprecated, you should use ${EXTENSIONS.KHR_TEXTURE_BASISU} instead` );
 							break;
 
 						case EXTENSIONS.MSFT_TEXTURE_DDS:
@@ -337,7 +343,9 @@ THREE.GLTFLoader = ( function () {
 		KHR_TEXTURE_TRANSFORM: 'KHR_texture_transform',
 		KHR_MESH_QUANTIZATION: 'KHR_mesh_quantization',
 		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
-		MOZ_HUBS_TEXTURE_BASIS: "MOZ_HUBS_texture_basis"
+		// TODO we eventually want to remove suport for this in favor of the KHR extension
+		MOZ_HUBS_TEXTURE_BASIS: "MOZ_HUBS_texture_basis",
+		KHR_TEXTURE_BASISU: "KHR_texture_basisu"
 	};
 
 	/**
@@ -551,12 +559,25 @@ THREE.GLTFLoader = ( function () {
 
 		if ( ! loader ) {
 
-			throw new Error( 'THREE.GLTFLoader: No HubsBasisTextureLoader instance provided.' );
+			throw new Error( 'THREE.GLTFLoader: No BasisTextureLoader exists on the KTX2Loader or no KTX2Loader instance was provided.' );
 
 		}
 
-		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS
+		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS;
 		this.basisTextureLoader = loader;
+
+	}
+
+	function GLTFKHRBasisTextureExtension( loader ) {
+
+		if ( ! loader ) {
+
+			throw new Error( 'THREE.GLTFLoader: No KTX2Loader instance provided.' );
+
+		}
+
+		this.name = EXTENSIONS.KHR_TEXTURE_BASISU;
+		this.ktx2loader = loader;
 
 	}
 
@@ -1952,6 +1973,10 @@ THREE.GLTFLoader = ( function () {
 
 			source = json.images[ textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].source ];
 
+		} else if ( textureExtensions[ EXTENSIONS.KHR_TEXTURE_BASISU ] ) {
+
+			source = json.images[ textureExtensions[ EXTENSIONS.KHR_TEXTURE_BASISU ].source ];
+
 		} else if ( textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ] ) {
 
 			source = json.images[ textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].source ];
@@ -1988,11 +2013,23 @@ THREE.GLTFLoader = ( function () {
 
 			if ( ! loader ) {
 
-				loader = textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ]
-					? parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader
-					: textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ]
-						? parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader
-						: textureLoader;
+				if ( textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader;
+
+				} else if ( textureExtensions[ EXTENSIONS.KHR_TEXTURE_BASISU ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.KHR_TEXTURE_BASISU ].ktx2loader;
+
+				} else if ( textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader;
+
+				} else {
+
+					loader = textureLoader;
+
+				}
 
 			}
 
@@ -2185,8 +2222,7 @@ THREE.GLTFLoader = ( function () {
 
 		if ( material.aoMap && geometry.attributes.uv2 === undefined && geometry.attributes.uv !== undefined ) {
 
-			console.log( 'THREE.GLTFLoader: Duplicating UVs to support aoMap.' );
-			geometry.setAttribute( 'uv2', new THREE.BufferAttribute( geometry.attributes.uv.array, 2 ) );
+			geometry.setAttribute( 'uv2', geometry.attributes.uv );
 
 		}
 
