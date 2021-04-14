@@ -41909,6 +41909,8 @@ ImageBitmapLoader.prototype = Object.assign( Object.create( Loader.prototype ), 
 
 	constructor: ImageBitmapLoader,
 
+	isImageBitmapLoader: true,
+
 	setOptions: function setOptions( options ) {
 
 		this.options = options;

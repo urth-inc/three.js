@@ -41919,6 +41919,8 @@
 
 		constructor: ImageBitmapLoader,
 
+		isImageBitmapLoader: true,
+
 		setOptions: function setOptions( options ) {
 
 			this.options = options;
