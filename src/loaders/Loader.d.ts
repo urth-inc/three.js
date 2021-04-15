@@ -10,6 +10,8 @@ export class Loader {
 	crossOrigin: string;
 	path: string;
 	resourcePath: string;
+	requestHeader: { [header: string]: string };
+
 	manager: LoadingManager;
 
 	/*
@@ -20,5 +22,6 @@ export class Loader {
 	setCrossOrigin( crossOrigin: string ): this;
 	setPath( path: string ): this;
 	setResourcePath( resourcePath: string ): this;
+	setRequestHeader( requestHeader: { [header: string]: string } ): this;
 
 }
