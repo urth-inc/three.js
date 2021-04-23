@@ -130,6 +130,12 @@ Object3D.prototype = Object.assign( Object.create( EventDispatcher.prototype ), 
 
 	applyMatrix: function ( matrix ) {
 
+		return this.applyMatrix4( matrix );
+
+	},
+
+	applyMatrix4: function ( matrix ) {
+
 		if ( this.matrixAutoUpdate ) this.updateMatrix();
 
 		this.matrix.premultiply( matrix );
