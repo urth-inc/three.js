@@ -7,9 +7,27 @@ function WebGLAnimation() {
 
 	function onAnimationFrame( time, frame ) {
 
+		self.updateMatricesCount = 0;
+		self.localMatrixUpdateCount = 0;
+		self.worldMatrixUpdateCount = 0;
+		self.rootWorldMatrixUpdateCount = 0;
+		self.unmodifiedWorldMatrixUpdateCount = 0;
+		self.regularWorldMatrixUpdateCount = 0;
+
 		animationLoop( time, frame );
 
 		requestId = context.requestAnimationFrame( onAnimationFrame );
+
+		if (self.showMatricesUpdateCount) {
+			console.log(
+				self.updateMatricesCount,
+				self.localMatrixUpdateCount,
+				self.worldMatrixUpdateCount,
+				self.rootWorldMatrixUpdateCount,
+				self.unmodifiedWorldMatrixUpdateCount,
+				self.regularWorldMatrixUpdateCount
+			);
+		}
 
 	}
 

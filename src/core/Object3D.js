@@ -31,6 +31,15 @@ const _oneScale = new Vector3( 1, 1, 1 );
 const _identity = new Matrix4();
 _identity.identity();
 
+self.showMatricesFlagUpdate = false;
+self.showMatricesUpdateCount = false;
+self.updateMatricesCount = 0;
+self.localMatrixUpdateCount = 0;
+self.worldMatrixUpdateCount = 0;
+self.rootWorldMatrixUpdateCount = 0;
+self.unmodifiedWorldMatrixUpdateCount = 0;
+self.regularWorldMatrixUpdateCount = 0;
+
 class Object3D extends EventDispatcher {
 
 	constructor() {
@@ -69,6 +78,21 @@ class Object3D extends EventDispatcher {
 		rotation._onChange( onRotationChange );
 		quaternion._onChange( onQuaternionChange );
 
+		this._matrixNeedsUpdate = false;
+		this._matrixWorldNeedsUpdate = false;
+		this._childrenNeedMatrixWorldUpdate = false;
+		this._matrixIsModified = false;
+
+		const createPrefix = (object) => {
+			let prefix = '';
+			let parent = object;
+			while (parent !== null) {
+				prefix += '-';
+				parent = parent.parent;
+			}
+			return prefix;
+		};
+
 		Object.defineProperties( this, {
 			position: {
 				configurable: true,
@@ -95,6 +119,50 @@ class Object3D extends EventDispatcher {
 			},
 			normalMatrix: {
 				value: new Matrix3()
+			},
+			matrixNeedsUpdate: {
+				get: () => {
+					return this._matrixNeedsUpdate;
+				},
+				set: (value) => {
+					if (self.showMatricesFlagUpdate) {
+						console.warn('matrix needs update', value, createPrefix(this), this.name, this.type, this.uuid, this);
+					}
+					this._matrixNeedsUpdate = value;
+				}
+			},
+			matrixWorldNeedsUpdate: {
+				get: () => {
+					return this._matrixWorldNeedsUpdate;
+				},
+				set: (value) => {
+					if (self.showMatricesFlagUpdate) {
+						console.warn('matrix world needs update', value, createPrefix(this), this.name, this.type, this.uuid, this);
+					}
+					this._matrixWorldNeedsUpdate = value;
+				}
+			},
+			childrenNeedMatrixWorldUpdate: {
+				get: () => {
+					return this._childrenNeedMatrixWorldUpdate;
+				},
+				set: (value) => {
+					if (self.showMatricesFlagUpdate) {
+						console.warn('children need matrix world update', value, createPrefix(this), this.name, this.type, this.uuid, this);
+					}
+					this._childrenNeedMatrixWorldUpdate = value;
+				}
+			},
+			matrixIsModified: {
+				get: () => {
+					return this._matrixIsModified;
+				},
+				set: (value) => {
+					if (self.showMatricesFlagUpdate) {
+						console.warn('matrix is modified', value, createPrefix(this), this.name, this.type, this.uuid, this);
+					}
+					this._matrixIsModified = value;
+				}
 			}
 		} );
 
@@ -629,6 +697,8 @@ class Object3D extends EventDispatcher {
 	//
 	updateMatrices( forceLocalUpdate, forceWorldUpdate, skipParents ) {
 
+		self.updateMatricesCount ++;
+
 		if ( ! this.hasHadFirstMatrixUpdate ) {
 
 			if (
@@ -651,6 +721,8 @@ class Object3D extends EventDispatcher {
 
 		} else if ( this.matrixNeedsUpdate || this.matrixAutoUpdate || forceLocalUpdate ) {
 
+			self.localMatrixUpdateCount ++;
+
 			// updateMatrix() sets matrixWorldNeedsUpdate = true
 			this.updateMatrix();
 			if ( this.matrixNeedsUpdate ) this.matrixNeedsUpdate = false;
@@ -666,8 +738,11 @@ class Object3D extends EventDispatcher {
 
 		if ( this.matrixWorldNeedsUpdate || forceWorldUpdate ) {
 
+			self.worldMatrixUpdateCount ++;
+
 			if ( this.parent === null ) {
 
+				self.rootWorldMatrixUpdateCount ++;
 				this.matrixWorld.copy( this.matrix );
 
 			} else {
@@ -680,10 +755,12 @@ class Object3D extends EventDispatcher {
 				// updateMatrixWorld.
 				if ( ! this.matrixIsModified ) {
 
+					self.unmodifiedWorldMatrixUpdateCount ++;
 					this.matrixWorld = this.parent.matrixWorld;
 
 				} else {
 
+					self.regularWorldMatrixUpdateCount ++;
 					// Once matrixIsModified === true, this.matrixWorld has been updated to be a local
 					// copy, not a reference to this.parent.matrixWorld (see updateMatrix/applyMatrix)
 					this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
