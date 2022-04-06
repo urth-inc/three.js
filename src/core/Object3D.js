@@ -104,6 +104,12 @@ class Object3D extends EventDispatcher {
 		this.matrixAutoUpdate = Object3D.DefaultMatrixAutoUpdate;
 		this.matrixWorldNeedsUpdate = false;
 
+		// [HUBS] Special flags to avoid unnecessary matrices update
+		this.matrixNeedsUpdate = false;
+		this.childrenNeedMatrixWorldUpdate = false;
+		this.matrixIsModified = false;
+		this.hasHadFirstMatrixUpdate = false;
+
 		this.layers = new Layers();
 		this.visible = true;
 
@@ -587,7 +593,7 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		if ( this.childrenNeedMatrixWorldUpdate ) this.childrenNeedMatrixWorldUpdate = false;
+		this.childrenNeedMatrixWorldUpdate = false;
 
 	}
 
@@ -608,7 +614,7 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			if ( this.childrenNeedMatrixWorldUpdate ) this.childrenNeedMatrixWorldUpdate = false;
+			this.childrenNeedMatrixWorldUpdate = false;
 
 		}
 
@@ -653,7 +659,7 @@ class Object3D extends EventDispatcher {
 
 			// updateMatrix() sets matrixWorldNeedsUpdate = true
 			this.updateMatrix();
-			if ( this.matrixNeedsUpdate ) this.matrixNeedsUpdate = false;
+			this.matrixNeedsUpdate = false;
 
 		}
 
