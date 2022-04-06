@@ -31,6 +31,8 @@ const _oneScale = new Vector3( 1, 1, 1 );
 const _identity = new Matrix4();
 _identity.identity();
 
+const _epsilon = 0.00000000001;
+
 class Object3D extends EventDispatcher {
 
 	constructor() {
@@ -666,6 +668,8 @@ class Object3D extends EventDispatcher {
 
 		if ( this.matrixWorldNeedsUpdate || forceWorldUpdate ) {
 
+			_m1.copy( this.matrixWorld );
+
 			if ( this.parent === null ) {
 
 				this.matrixWorld.copy( this.matrix );
@@ -692,7 +696,16 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			this.childrenNeedMatrixWorldUpdate = true;
+			if ( _m1.near( this.matrixWorld, _epsilon ) ) {
+
+				this.matrixWorld.copy( _m1 );
+
+			} else {
+
+				this.childrenNeedMatrixWorldUpdate = true;
+
+			}
+
 			this.matrixWorldNeedsUpdate = false;
 
 		}
