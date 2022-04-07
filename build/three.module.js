@@ -3338,6 +3338,16 @@ class Quaternion {
 
 	}
 
+	// [HUBS] Similar to equals() but allows the diff under eps
+	near( quaternion, eps = Number.EPSILON ) {
+
+		return ( Math.abs( quaternion._x - this._x ) < eps ) &&
+			( Math.abs( quaternion._y - this._y ) < eps ) &&
+			( Math.abs( quaternion._z - this._z ) < eps ) &&
+			( Math.abs( quaternion._w - this._w ) < eps );
+
+	}
+
 	fromArray( array, offset = 0 ) {
 
 		this._x = array[ offset ];
@@ -4048,6 +4058,15 @@ class Vector3 {
 	equals( v ) {
 
 		return ( ( v.x === this.x ) && ( v.y === this.y ) && ( v.z === this.z ) );
+
+	}
+
+	// [HUBS] Similar to equals() but allows the diff under eps
+	near( v, eps = Number.EPSILON ) {
+
+		return ( Math.abs( v.x - this.x ) < eps ) &&
+			( Math.abs( v.y - this.y ) < eps ) &&
+			( Math.abs( v.z - this.z ) < eps );
 
 	}
 
@@ -6181,6 +6200,22 @@ class Matrix4 {
 
 	}
 
+	// [HUBS] Similar to equals() but allow the diff under eps.
+	near( matrix, eps = Number.EPSILON ) {
+
+		const te = this.elements;
+		const me = matrix.elements;
+
+		for ( let i = 0; i < 16; i ++ ) {
+
+			if ( Math.abs( te[ i ] - me[ i ] ) >= eps ) return false;
+
+		}
+
+		return true;
+
+	}
+
 	fromArray( array, offset = 0 ) {
 
 		for ( let i = 0; i < 16; i ++ ) {
@@ -6605,6 +6640,7 @@ let _object3DId = 0;
 
 const _v1$4 = /*@__PURE__*/ new Vector3();
 const _q1 = /*@__PURE__*/ new Quaternion();
+const _q2 = /*@__PURE__*/ new Quaternion();
 const _m1$1 = /*@__PURE__*/ new Matrix4();
 const _target = /*@__PURE__*/ new Vector3();
 
@@ -6624,6 +6660,8 @@ const _zeroQuat = new Quaternion();
 const _oneScale = new Vector3( 1, 1, 1 );
 const _identity = new Matrix4();
 _identity.identity();
+
+const _epsilon = 0.00000000001;
 
 class Object3D extends EventDispatcher {
 
@@ -6697,6 +6735,12 @@ class Object3D extends EventDispatcher {
 
 		this.matrixAutoUpdate = Object3D.DefaultMatrixAutoUpdate;
 		this.matrixWorldNeedsUpdate = false;
+
+		// [HUBS] Special flags to avoid unnecessary matrices update
+		this.matrixNeedsUpdate = false;
+		this.childrenNeedMatrixWorldUpdate = false;
+		this.matrixIsModified = false;
+		this.hasHadFirstMatrixUpdate = false;
 
 		this.layers = new Layers();
 		this.visible = true;
@@ -6886,6 +6930,8 @@ class Object3D extends EventDispatcher {
 
 		}
 
+		_q2.copy( this.quaternion );
+
 		this.quaternion.setFromRotationMatrix( _m1$1 );
 
 		if ( parent ) {
@@ -6896,7 +6942,15 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		this.matrixNeedsUpdate = true;
+		if ( _q2.near( this.quaternion, _epsilon ) ) {
+
+			this.quaternion.copy( _q2 );
+
+		} else {
+
+			this.matrixNeedsUpdate = true;
+
+		}
 
 	}
 
@@ -7181,7 +7235,7 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		if ( this.childrenNeedMatrixWorldUpdate ) this.childrenNeedMatrixWorldUpdate = false;
+		this.childrenNeedMatrixWorldUpdate = false;
 
 	}
 
@@ -7202,7 +7256,7 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			if ( this.childrenNeedMatrixWorldUpdate ) this.childrenNeedMatrixWorldUpdate = false;
+			this.childrenNeedMatrixWorldUpdate = false;
 
 		}
 
@@ -7247,7 +7301,7 @@ class Object3D extends EventDispatcher {
 
 			// updateMatrix() sets matrixWorldNeedsUpdate = true
 			this.updateMatrix();
-			if ( this.matrixNeedsUpdate ) this.matrixNeedsUpdate = false;
+			this.matrixNeedsUpdate = false;
 
 		}
 
@@ -7259,6 +7313,8 @@ class Object3D extends EventDispatcher {
 		}
 
 		if ( this.matrixWorldNeedsUpdate || forceWorldUpdate ) {
+
+			_m1$1.copy( this.matrixWorld );
 
 			if ( this.parent === null ) {
 
@@ -7286,7 +7342,16 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			this.childrenNeedMatrixWorldUpdate = true;
+			if ( _m1$1.near( this.matrixWorld, _epsilon ) ) {
+
+				this.matrixWorld.copy( _m1$1 );
+
+			} else {
+
+				this.childrenNeedMatrixWorldUpdate = true;
+
+			}
+
 			this.matrixWorldNeedsUpdate = false;
 
 		}
