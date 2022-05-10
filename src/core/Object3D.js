@@ -593,7 +593,22 @@ class Object3D extends EventDispatcher {
 	// includeInvisible - If true, does not ignore non-visible objects.
 	updateMatrixWorld( forceWorldUpdate, includeInvisible ) {
 
-		if ( ! this.visible && ! includeInvisible ) return;
+		if ( ! this.visible && ! includeInvisible ) {
+
+			if ( this.parent && this.parent.childrenNeedMatrixWorldUpdate ) {
+
+				// The parent's childrenNeedMatrixWorldUpdate is cleared
+				// if this method is recursively called from the parent
+				// and this object may lose the opportunity to update
+				// the world matrix. So raise the matrixWorldNeedsUpdate flag
+				// instead, and update it later when needed.
+				this.matrixWorldNeedsUpdate = true;
+
+			}
+
+			return;
+
+		}
 
 		// Do not recurse upwards, since this is recursing downwards
 		this.updateMatrices( false, forceWorldUpdate, true );
