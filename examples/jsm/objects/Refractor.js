@@ -13,7 +13,7 @@ import {
 	LinearEncoding,
 	NoToneMapping,
 	HalfFloatType
-} from 'three';
+} from 'three-r148';
 
 class Refractor extends Mesh {
 

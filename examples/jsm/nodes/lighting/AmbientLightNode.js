@@ -1,7 +1,7 @@
 import AnalyticLightNode from './AnalyticLightNode.js';
 import LightsNode from './LightsNode.js';
 
-import { AmbientLight } from 'three';
+import { AmbientLight } from 'three-r148';
 
 class AmbientLightNode extends AnalyticLightNode {
 

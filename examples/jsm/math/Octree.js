@@ -5,7 +5,7 @@ import {
 	Sphere,
 	Triangle,
 	Vector3
-} from 'three';
+} from 'three-r148';
 import { Capsule } from '../math/Capsule.js';
 
 

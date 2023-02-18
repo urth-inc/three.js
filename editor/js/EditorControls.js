@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 
 class EditorControls extends THREE.EventDispatcher {
 

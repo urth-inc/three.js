@@ -116,7 +116,7 @@ that looks like this</p>
 
 <p>First let's load three.js</p>
 <pre class="prettyprint showlinemods notranslate lang-html" translate="no">&lt;script type="module"&gt;
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 &lt;/script&gt;
 </pre>
 <p>It's important you put <code class="notranslate" translate="no">type="module"</code> in the script tag. This enables
@@ -131,7 +131,7 @@ they are dependent on.</p>
 </pre>
 <p>We will ask three.js to draw into that canvas so we need to look it up.</p>
 <pre class="prettyprint showlinemods notranslate lang-html" translate="no">&lt;script type="module"&gt;
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 
 +function main() {
 +  const canvas = document.querySelector('#c');
@@ -370,7 +370,7 @@ es6 modules can be loaded via the <code class="notranslate" translate="no">impor
 or inline via a <code class="notranslate" translate="no">&lt;script type="module"&gt;</code> tag. Here's an example
 </p>
 <pre class="prettyprint showlinemods notranslate lang-html" translate="no">&lt;script type="module"&gt;
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 
 ...
 
@@ -438,7 +438,7 @@ To conclude, the recommended way of using three.js is
 &lt;/script&gt;
 
 &lt;script type="module"&gt;
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
 ...

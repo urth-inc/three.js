@@ -11,7 +11,7 @@ import {
 	ShapeUtils,
 	Vector2,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 class SVGLoader extends Loader {
 

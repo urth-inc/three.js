@@ -3,7 +3,7 @@ import {
 	Loader,
 	CanvasTexture,
 	NearestFilter
-} from 'three';
+} from 'three-r148';
 
 import lottie from '../libs/lottie_canvas.module.js';
 

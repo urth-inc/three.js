@@ -1,4 +1,4 @@
-import { MaterialLoader } from 'three';
+import { MaterialLoader } from 'three-r148';
 import {
 	NodeMaterial,
 	LineBasicNodeMaterial,

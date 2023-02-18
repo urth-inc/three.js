@@ -6,7 +6,7 @@ import {
 	MeshBasicMaterial,
 	PlaneGeometry,
 	Texture
-} from 'three';
+} from 'three-r148';
 
 /**
  * This class has been made to hold a slice of a volume data

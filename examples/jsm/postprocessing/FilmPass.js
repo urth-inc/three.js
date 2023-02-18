@@ -1,7 +1,7 @@
 import {
 	ShaderMaterial,
 	UniformsUtils
-} from 'three';
+} from 'three-r148';
 import { Pass, FullScreenQuad } from './Pass.js';
 import { FilmShader } from '../shaders/FilmShader.js';
 

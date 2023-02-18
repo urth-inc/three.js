@@ -6,7 +6,7 @@ import {
 	PlaneGeometry,
 	sRGBEncoding,
 	Color
-} from 'three';
+} from 'three-r148';
 
 class HTMLMesh extends Mesh {
 

@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from 'three-r148';
 
 /**
  * Depth-of-field shader with bokeh

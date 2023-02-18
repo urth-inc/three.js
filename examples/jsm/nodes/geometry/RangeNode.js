@@ -1,6 +1,6 @@
 import Node from '../core/Node.js';
 import { attribute, float } from '../shadernode/ShaderNodeBaseElements.js';
-import { MathUtils, InstancedBufferAttribute } from 'three';
+import { MathUtils, InstancedBufferAttribute } from 'three-r148';
 
 class RangeNode extends Node {
 

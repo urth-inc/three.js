@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from 'three-r148';
 
 /**
  * NVIDIA FXAA by Timothy Lottes

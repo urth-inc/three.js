@@ -3,7 +3,7 @@ import LightsNode from './LightsNode.js';
 import getDirectionVector from '../functions/light/getDirectionVector.js';
 import { uniform } from '../shadernode/ShaderNodeElements.js';
 
-import { Vector3, DirectionalLight } from 'three';
+import { Vector3, DirectionalLight } from 'three-r148';
 
 class DirectionalLightNode extends AnalyticLightNode {
 

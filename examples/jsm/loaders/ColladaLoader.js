@@ -37,7 +37,7 @@ import {
 	Vector3,
 	VectorKeyframeTrack,
 	sRGBEncoding
-} from 'three';
+} from 'three-r148';
 import { TGALoader } from '../loaders/TGALoader.js';
 
 class ColladaLoader extends Loader {

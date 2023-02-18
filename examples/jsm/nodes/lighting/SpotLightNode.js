@@ -4,7 +4,7 @@ import getDistanceAttenuation from '../functions/light/getDistanceAttenuation.js
 import getDirectionVector from '../functions/light/getDirectionVector.js';
 import { uniform, smoothstep, positionView, objectViewPosition } from '../shadernode/ShaderNodeElements.js';
 
-import { Vector3, SpotLight } from 'three';
+import { Vector3, SpotLight } from 'three-r148';
 
 const getSpotAttenuation = ( coneCosine, penumbraCosine, angleCosine ) => smoothstep( coneCosine, penumbraCosine, angleCosine );
 

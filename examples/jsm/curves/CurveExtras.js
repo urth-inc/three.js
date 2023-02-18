@@ -1,7 +1,7 @@
 import {
 	Curve,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 /**
  * A bunch of parametric curves

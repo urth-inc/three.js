@@ -5,7 +5,7 @@ import {
 	NumberKeyframeTrack,
 	Vector3,
 	VectorKeyframeTrack
-} from 'three';
+} from 'three-r148';
 
 class AnimationClipCreator {
 

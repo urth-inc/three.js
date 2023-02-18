@@ -2,7 +2,7 @@ import {
 	UniformsLib,
 	UniformsUtils,
 	Matrix4
-} from 'three';
+} from 'three-r148';
 
 /**
  * Mesh Velocity Shader @bhouston

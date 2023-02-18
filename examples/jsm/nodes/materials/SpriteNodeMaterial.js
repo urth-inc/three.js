@@ -1,5 +1,5 @@
 import NodeMaterial from './NodeMaterial.js';
-import { SpriteMaterial } from 'three';
+import { SpriteMaterial } from 'three-r148';
 import {
 	vec2, vec3, vec4,
 	uniform, add, mul, sub,

@@ -9,7 +9,7 @@ import {
 	ShaderMaterial,
 	Texture,
 	UniformsUtils
-} from 'three';
+} from 'three-r148';
 import { UnpackDepthRGBAShader } from '../shaders/UnpackDepthRGBAShader.js';
 
 /**

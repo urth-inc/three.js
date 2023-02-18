@@ -12,7 +12,7 @@ import {
 	HalfFloatType,
 	NoToneMapping,
 	LinearEncoding
-} from 'three';
+} from 'three-r148';
 
 class Reflector extends Mesh {
 

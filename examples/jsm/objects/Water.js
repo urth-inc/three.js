@@ -11,7 +11,7 @@ import {
 	Vector3,
 	Vector4,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-r148';
 
 /**
  * Work based on :

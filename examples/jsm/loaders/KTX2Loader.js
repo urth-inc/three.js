@@ -37,7 +37,7 @@ import {
 	RGFormat,
 	sRGBEncoding,
 	UnsignedByteType,
-} from 'three';
+} from 'three-r148';
 import { WorkerPool } from '../utils/WorkerPool.js';
 import {
 	read,

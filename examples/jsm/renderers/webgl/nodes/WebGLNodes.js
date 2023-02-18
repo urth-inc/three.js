@@ -1,7 +1,7 @@
 import { WebGLNodeBuilder } from './WebGLNodeBuilder.js';
 import { NodeFrame } from 'three/nodes';
 
-import { Material } from 'three';
+import { Material } from 'three-r148';
 
 const builders = new WeakMap();
 export const nodeFrame = new NodeFrame();

@@ -7,7 +7,7 @@ import {
 	LoaderUtils,
 	Points,
 	PointsMaterial
-} from 'three';
+} from 'three-r148';
 
 class PCDLoader extends Loader {
 

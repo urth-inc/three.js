@@ -6,7 +6,7 @@ import {
 	LineBasicMaterial,
 	Mesh,
 	MeshBasicMaterial
-} from 'three';
+} from 'three-r148';
 
 /**
  *  This helper must be added as a child of the light

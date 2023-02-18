@@ -10,7 +10,7 @@ import {
  	MeshStandardMaterial,
  	PointLight,
  	Scene,
-} from 'three';
+} from 'three-r148';
 
 class RoomEnvironment extends Scene {
 

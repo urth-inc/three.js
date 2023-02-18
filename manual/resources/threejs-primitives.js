@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 import {threejsLessonUtils} from './threejs-lesson-utils.js';
 import {FontLoader} from '../../examples/jsm/loaders/FontLoader.js';
 import {ParametricGeometry} from '../../examples/jsm/geometries/ParametricGeometry.js';

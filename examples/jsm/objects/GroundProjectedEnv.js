@@ -1,4 +1,4 @@
-import { Mesh, IcosahedronGeometry, ShaderMaterial, DoubleSide } from 'three';
+import { Mesh, IcosahedronGeometry, ShaderMaterial, DoubleSide } from 'three-r148';
 
 /**
  * Ground projected env map adapted from @react-three/drei.

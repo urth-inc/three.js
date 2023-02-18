@@ -1,6 +1,6 @@
 import {
 	Color
-} from 'three';
+} from 'three-r148';
 import { Pass } from './Pass.js';
 
 class ClearPass extends Pass {

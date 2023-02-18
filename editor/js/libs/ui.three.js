@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { TGALoader } from 'three/addons/loaders/TGALoader.js';

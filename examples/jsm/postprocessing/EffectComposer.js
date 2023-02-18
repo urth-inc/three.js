@@ -2,7 +2,7 @@ import {
 	Clock,
 	Vector2,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-r148';
 import { CopyShader } from '../shaders/CopyShader.js';
 import { ShaderPass } from './ShaderPass.js';
 import { MaskPass } from './MaskPass.js';

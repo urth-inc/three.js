@@ -7,7 +7,7 @@ import {
 	BufferGeometry,
 	Float32BufferAttribute,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 class ParametricGeometry extends BufferGeometry {
 

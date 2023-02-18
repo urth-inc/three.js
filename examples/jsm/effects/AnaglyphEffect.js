@@ -10,7 +10,7 @@ import {
 	ShaderMaterial,
 	StereoCamera,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-r148';
 
 class AnaglyphEffect {
 

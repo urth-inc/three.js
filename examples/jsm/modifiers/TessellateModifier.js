@@ -4,7 +4,7 @@ import {
 	Float32BufferAttribute,
 	Vector2,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 /**
  * Break faces with edges longer than maxEdgeLength

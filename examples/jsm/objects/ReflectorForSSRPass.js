@@ -13,7 +13,7 @@ import {
 	NearestFilter,
 	Plane,
 	HalfFloatType
-} from 'three';
+} from 'three-r148';
 
 class ReflectorForSSRPass extends Mesh {
 

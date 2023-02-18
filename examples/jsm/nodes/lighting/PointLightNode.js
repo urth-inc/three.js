@@ -3,7 +3,7 @@ import LightsNode from './LightsNode.js';
 import getDistanceAttenuation from '../functions/light/getDistanceAttenuation.js';
 import { uniform, positionView, objectViewPosition } from '../shadernode/ShaderNodeElements.js';
 
-import { PointLight } from 'three';
+import { PointLight } from 'three-r148';
 
 class PointLightNode extends AnalyticLightNode {
 

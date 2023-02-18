@@ -4,7 +4,7 @@ import {
 	LineBasicMaterial,
 	Line,
 	MathUtils
-} from 'three';
+} from 'three-r148';
 
 class PositionalAudioHelper extends Line {
 

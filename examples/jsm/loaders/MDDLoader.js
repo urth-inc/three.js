@@ -16,7 +16,7 @@ import {
 	FileLoader,
 	Loader,
 	NumberKeyframeTrack
-} from 'three';
+} from 'three-r148';
 
 class MDDLoader extends Loader {
 

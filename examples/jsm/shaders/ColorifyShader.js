@@ -1,6 +1,6 @@
 import {
 	Color
-} from 'three';
+} from 'three-r148';
 
 /**
  * Colorify shader

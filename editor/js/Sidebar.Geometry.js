@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three-r148';
 
 import { UIPanel, UIRow, UIText, UIInput, UIButton, UISpan } from './libs/ui.js';
 

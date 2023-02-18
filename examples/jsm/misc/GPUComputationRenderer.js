@@ -12,7 +12,7 @@ import {
 	Scene,
 	ShaderMaterial,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-r148';
 
 /**
  * GPUComputationRenderer, based on SimulationRenderer by zz85

@@ -1,6 +1,6 @@
 import {
 	Vector2
-} from 'three';
+} from 'three-r148';
 
 /**
  * Dot screen shader

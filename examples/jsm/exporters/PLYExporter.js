@@ -2,7 +2,7 @@ import {
 	Matrix3,
 	Vector3,
 	Color
-} from 'three';
+} from 'three-r148';
 
 /**
  * https://github.com/gkjohnson/ply-exporter-js

@@ -1,5 +1,5 @@
 import { Command } from '../Command.js';
-import { ObjectLoader } from 'three';
+import { ObjectLoader } from 'three-r148';
 
 /**
  * @param editor Editor

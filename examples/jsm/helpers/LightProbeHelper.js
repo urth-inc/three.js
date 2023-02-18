@@ -2,7 +2,7 @@ import {
 	Mesh,
 	ShaderMaterial,
 	SphereGeometry
-} from 'three';
+} from 'three-r148';
 
 class LightProbeHelper extends Mesh {
 

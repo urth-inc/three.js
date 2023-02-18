@@ -21,7 +21,7 @@ import {
 	Source,
 	sRGBEncoding,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 class GLTFExporter {
 

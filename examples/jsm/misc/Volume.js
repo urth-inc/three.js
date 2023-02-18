@@ -2,7 +2,7 @@ import {
 	Matrix3,
 	Matrix4,
 	Vector3
-} from 'three';
+} from 'three-r148';
 import { VolumeSlice } from '../misc/VolumeSlice.js';
 
 /**

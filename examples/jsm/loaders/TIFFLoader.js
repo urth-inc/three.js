@@ -2,7 +2,7 @@ import {
 	DataTextureLoader,
 	LinearFilter,
 	LinearMipmapLinearFilter
-} from 'three';
+} from 'three-r148';
 
 import UTIF from '../libs/utif.module.js';
 

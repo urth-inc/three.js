@@ -1,7 +1,7 @@
 import {
 	Color,
 	Vector3
-} from 'three';
+} from 'three-r148';
 
 /**
  * Currently contains:

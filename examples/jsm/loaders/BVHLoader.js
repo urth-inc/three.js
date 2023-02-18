@@ -8,7 +8,7 @@ import {
 	Skeleton,
 	Vector3,
 	VectorKeyframeTrack
-} from 'three';
+} from 'three-r148';
 
 /**
  * Description: reads BVH files and outputs a single Skeleton and an AnimationClip

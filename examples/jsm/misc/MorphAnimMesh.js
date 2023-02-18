@@ -2,7 +2,7 @@ import {
 	AnimationClip,
 	AnimationMixer,
 	Mesh
-} from 'three';
+} from 'three-r148';
 
 class MorphAnimMesh extends Mesh {
 
