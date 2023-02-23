@@ -14,7 +14,7 @@ import {
 	Matrix4,
 	MathUtils,
 	EventDispatcher
-} from 'three';
+} from 'three-mh';
 
 //trackball state
 const STATE = {

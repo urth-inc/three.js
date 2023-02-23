@@ -2,7 +2,7 @@ import {
 	Matrix4,
 	Object3D,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 class CSS2DObject extends Object3D {
 

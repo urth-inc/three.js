@@ -1,7 +1,7 @@
 import {
 	Color,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 /**
  * God-rays (crepuscular rays)

@@ -3,7 +3,7 @@ import {
 	Loader,
 	CanvasTexture,
 	NearestFilter
-} from 'three';
+} from 'three-mh';
 
 class LottieLoader extends Loader {
 

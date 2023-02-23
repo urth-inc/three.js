@@ -61,7 +61,7 @@ import {
 	Vector3,
 	VectorKeyframeTrack,
 	sRGBEncoding
-} from 'three';
+} from 'three-mh';
 
 class GLTFLoader extends Loader {
 

@@ -10,7 +10,7 @@ import {
 	Vector3,
 	Vector4,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-mh';
 
 class Refractor extends Mesh {
 

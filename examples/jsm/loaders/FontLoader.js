@@ -2,7 +2,7 @@ import {
 	FileLoader,
 	Loader,
 	ShapePath
-} from 'three';
+} from 'three-mh';
 
 class FontLoader extends Loader {
 

@@ -33,7 +33,7 @@ import { PointsEditor } from './scene/PointsEditor.js';
 import { MeshEditor } from './scene/MeshEditor.js';
 import { FileEditor } from './core/FileEditor.js';
 import { FileURLEditor } from './core/FileURLEditor.js';
-import { EventDispatcher } from 'three';
+import { EventDispatcher } from 'three-mh';
 
 Styles.icons.unlink = 'ti ti-unlink';
 

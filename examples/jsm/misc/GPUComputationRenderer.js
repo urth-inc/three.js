@@ -10,7 +10,7 @@ import {
 	Scene,
 	ShaderMaterial,
 	WebGLRenderTarget
-} from 'three';
+} from 'three-mh';
 
 /**
  * GPUComputationRenderer, based on SimulationRenderer by zz85

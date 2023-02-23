@@ -1,7 +1,7 @@
 import {
 	DataTextureLoader,
 	LinearMipmapLinearFilter
-} from 'three';
+} from 'three-mh';
 
 class TGALoader extends DataTextureLoader {
 

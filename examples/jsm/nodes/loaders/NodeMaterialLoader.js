@@ -1,4 +1,4 @@
-import { MaterialLoader } from 'three';
+import { MaterialLoader } from 'three-mh';
 
 class NodeMaterialLoader extends MaterialLoader {
 

@@ -10,7 +10,7 @@ import {
 	HalfFloatType,
 	RGBAFormat,
 	DataUtils,
-} from 'three';
+} from 'three-mh';
 import * as fflate from '../libs/fflate.module.js';
 
 const textEncoder = new TextEncoder();

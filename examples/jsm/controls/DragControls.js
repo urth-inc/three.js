@@ -5,7 +5,7 @@ import {
 	Raycaster,
 	Vector2,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 const _plane = new Plane();
 const _raycaster = new Raycaster();

@@ -19,7 +19,7 @@ import {
 	Scene,
 	Source,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 
 class GLTFExporter {

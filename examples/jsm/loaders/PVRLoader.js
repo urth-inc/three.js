@@ -4,7 +4,7 @@ import {
 	RGBA_PVRTC_4BPPV1_Format,
 	RGB_PVRTC_2BPPV1_Format,
 	RGB_PVRTC_4BPPV1_Format
-} from 'three';
+} from 'three-mh';
 
 /*
  *	 PVR v2 (legacy) parser

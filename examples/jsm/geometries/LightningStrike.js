@@ -5,7 +5,7 @@ import {
 	MathUtils,
 	Uint32BufferAttribute,
 	Vector3
-} from 'three';
+} from 'three-mh';
 import { SimplexNoise } from '../math/SimplexNoise.js';
 
 /**

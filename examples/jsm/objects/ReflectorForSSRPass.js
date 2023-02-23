@@ -12,7 +12,7 @@ import {
 	UnsignedShortType,
 	NearestFilter,
 	Plane
-} from 'three';
+} from 'three-mh';
 
 class ReflectorForSSRPass extends Mesh {
 

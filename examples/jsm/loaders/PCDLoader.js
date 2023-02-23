@@ -6,7 +6,7 @@ import {
 	LoaderUtils,
 	Points,
 	PointsMaterial
-} from 'three';
+} from 'three-mh';
 
 class PCDLoader extends Loader {
 

@@ -23,7 +23,7 @@ import {
 	ClampToEdgeWrapping,
 	RepeatWrapping,
 	TextureLoader
-} from 'three';
+} from 'three-mh';
 
 const _taskCache = new WeakMap();
 

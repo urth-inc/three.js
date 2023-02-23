@@ -7,7 +7,7 @@ import {
 	LinearFilter,
 	RedFormat,
 	RGBAFormat
-} from 'three';
+} from 'three-mh';
 import * as fflate from '../libs/fflate.module.js';
 
 /**

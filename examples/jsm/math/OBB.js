@@ -5,7 +5,7 @@ import {
 	Matrix3,
 	Ray,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 // module scope helper variables
 

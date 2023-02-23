@@ -1,5 +1,5 @@
 import NodeMaterial from './NodeMaterial.js';
-import { LineBasicMaterial } from 'three';
+import { LineBasicMaterial } from 'three-mh';
 
 const defaultValues = new LineBasicMaterial();
 

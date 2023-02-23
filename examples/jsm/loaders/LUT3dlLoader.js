@@ -9,7 +9,7 @@ import {
 	UnsignedByteType,
 	ClampToEdgeWrapping,
 	LinearFilter,
-} from 'three';
+} from 'three-mh';
 
 export class LUT3dlLoader extends Loader {
 

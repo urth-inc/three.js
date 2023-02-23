@@ -1,6 +1,6 @@
 import {
 	MathUtils
-} from 'three';
+} from 'three-mh';
 
 const _hsl = {};
 

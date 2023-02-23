@@ -11,7 +11,7 @@ import {
 	sRGBEncoding,
 	DataTexture,
 	REVISION,
-} from 'three';
+} from 'three-mh';
 
 import {
 	write,

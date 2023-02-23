@@ -2,7 +2,7 @@ import {
 	EventDispatcher,
 	Quaternion,
 	Vector3
-} from 'three';
+} from 'three-mh';
 
 const _changeEvent = { type: 'change' };
 

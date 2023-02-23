@@ -1,6 +1,6 @@
 import {
 	Vector4
-} from 'three';
+} from 'three-mh';
 import * as NURBSUtils from '../curves/NURBSUtils.js';
 
 /**
