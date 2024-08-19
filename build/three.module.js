@@ -17602,7 +17602,15 @@ function setValueV3f( gl, v ) {
 
 		if ( arraysEqual( cache, v ) ) return;
 
-		gl.uniform3fv( this.addr, v );
+		try {
+
+			gl.uniform3fv( this.addr, v );
+
+		} catch ( error ) {
+
+			console.error( error );
+
+		}
 
 		copyArray( cache, v );
 
