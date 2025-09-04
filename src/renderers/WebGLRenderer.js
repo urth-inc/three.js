@@ -30,6 +30,7 @@ import { Vector2 } from '../math/Vector2.js';
 import { Vector3 } from '../math/Vector3.js';
 import { Vector4 } from '../math/Vector4.js';
 import { floorPowerOfTwo } from '../math/MathUtils.js';
+import { Box3 } from '../math/Box3.js';
 import { WebGLAnimation } from './webgl/WebGLAnimation.js';
 import { WebGLAttributes } from './webgl/WebGLAttributes.js';
 import { WebGLBackground } from './webgl/WebGLBackground.js';
@@ -69,7 +70,17 @@ function createCanvasElement() {
 }
 
 class WebGLRenderer {
+// non-zero here allows flat planes to still be lit by reflection probes
+// by considering them *very* thin instead of *infinitely* thin.
+function nonZeroBoxVolume( box ) {
 
+	return ( ( box.max.x - box.min.x || Number.EPSILON ) *
+			 ( box.max.y - box.min.y || Number.EPSILON ) *
+			 ( box.max.z - box.min.z || Number.EPSILON ) );
+
+}
+
+function WebGLRenderer( parameters = {} ) {
 	constructor( parameters = {} ) {
 
 		const {
@@ -95,8 +106,136 @@ class WebGLRenderer {
 
 		} else {
 
-			_alpha = alpha;
+		_alpha = alpha;
 
+	}
+
+	let currentRenderList = null;
+	let currentRenderState = null;
+
+	// render() can be called from within a callback triggered by another render.
+	// We track this so that the nested render call gets its list and state isolated from the parent render call.
+
+	const renderListStack = [];
+	const renderStateStack = [];
+
+	// public properties
+
+	this.domElement = _canvas;
+
+	// Debug configuration container
+	this.debug = {
+
+		/**
+		 * Enables error checking and reporting when shader programs are being compiled
+		 * @type {boolean}
+		 */
+		checkShaderErrors: true
+	};
+
+	// clearing
+
+	this.autoClear = true;
+	this.autoClearColor = true;
+	this.autoClearDepth = true;
+	this.autoClearStencil = true;
+
+	// scene graph
+
+	this.sortObjects = true;
+
+	// user-defined clipping
+
+	this.clippingPlanes = [];
+	this.localClippingEnabled = false;
+
+	// physically based shading
+
+	this.outputEncoding = LinearEncoding;
+
+	// physical lights
+
+	this.physicallyCorrectLights = false;
+
+	// tone mapping
+
+	this.toneMapping = NoToneMapping;
+	this.toneMappingExposure = 1.0;
+
+	// internal properties
+
+	const _this = this;
+
+	let _isContextLost = false;
+
+	// internal state cache
+
+	let _currentActiveCubeFace = 0;
+	let _currentActiveMipmapLevel = 0;
+	let _currentRenderTarget = null;
+	let _currentMaterialId = - 1;
+
+	let _currentCamera = null;
+
+	const _currentViewport = new Vector4();
+	const _currentScissor = new Vector4();
+	let _currentScissorTest = null;
+
+	//
+
+	let _width = _canvas.width;
+	let _height = _canvas.height;
+
+	let _pixelRatio = 1;
+	let _opaqueSort = null;
+	let _transparentSort = null;
+
+	const _viewport = new Vector4( 0, 0, _width, _height );
+	const _scissor = new Vector4( 0, 0, _width, _height );
+	let _scissorTest = false;
+
+	// frustum
+
+	const _frustum = new Frustum();
+
+	// clipping
+
+	let _clippingEnabled = false;
+	let _localClippingEnabled = false;
+
+	// transmission
+
+	let _transmissionRenderTarget = null;
+
+	// camera matrices cache
+
+	const _projScreenMatrix = new Matrix4();
+
+	const _vector2 = new Vector2();
+	const _vector3 = new Vector3();
+
+	const _tmpObjectAABB = new Box3();
+	const _tmpOverlapBox = new Box3();
+
+	const _emptyScene = { background: null, fog: null, environment: null, overrideMaterial: null, isScene: true };
+
+	function getTargetPixelRatio() {
+
+		return _currentRenderTarget === null ? _pixelRatio : 1;
+
+	}
+
+	// initialize
+
+	let _gl = _context;
+
+	function getContext( contextNames, contextAttributes ) {
+
+		for ( let i = 0; i < contextNames.length; i ++ ) {
+
+			const contextName = contextNames[ i ];
+			const context = _canvas.getContext( contextName, contextAttributes );
+			if ( context !== null ) return context;
 		}
 
 		const uintClearColor = new Uint32Array( 4 );
@@ -1556,6 +1695,810 @@ class WebGLRenderer {
 
 			materialProperties.needsLights = materialNeedsLights( material );
 			materialProperties.lightsStateVersion = lightsStateVersion;
+		}
+
+		//
+
+		if ( _currentRenderTarget !== null ) {
+
+			// resolve multisample renderbuffers to a single-sample texture if necessary
+
+			textures.updateMultisampleRenderTarget( _currentRenderTarget );
+
+			// Generate mipmap if we're using any kind of mipmap filtering
+
+			textures.updateRenderTargetMipmap( _currentRenderTarget );
+
+		}
+
+		//
+
+		if ( scene.isScene === true ) scene.onAfterRender( _this, scene, camera );
+
+		// _gl.finish();
+
+		bindingStates.resetDefaultState();
+		_currentMaterialId = - 1;
+		_currentCamera = null;
+
+		renderStateStack.pop();
+
+		if ( renderStateStack.length > 0 ) {
+
+			currentRenderState = renderStateStack[ renderStateStack.length - 1 ];
+
+		} else {
+
+			currentRenderState = null;
+
+		}
+
+		renderListStack.pop();
+
+		if ( renderListStack.length > 0 ) {
+
+			currentRenderList = renderListStack[ renderListStack.length - 1 ];
+
+		} else {
+
+			currentRenderList = null;
+
+		}
+
+	};
+
+	function projectObject( object, camera, groupOrder, sortObjects ) {
+
+		if ( object.visible === false ) return;
+
+		const visible = object.layers.test( camera.layers );
+
+		if ( visible ) {
+
+			if ( object.isGroup ) {
+
+				groupOrder = object.renderOrder;
+
+			} else if ( object.isLOD ) {
+
+				if ( object.autoUpdate === true ) object.update( camera );
+
+			} else if ( object.isLight ) {
+
+				currentRenderState.pushLight( object );
+
+				if ( object.castShadow ) {
+
+					currentRenderState.pushShadow( object );
+
+				}
+
+			} else if ( object.isSprite ) {
+
+				if ( ! object.frustumCulled || _frustum.intersectsSprite( object ) ) {
+
+					if ( sortObjects ) {
+
+						_vector3.setFromMatrixPosition( object.matrixWorld )
+							.applyMatrix4( _projScreenMatrix );
+
+					}
+
+					const geometry = objects.update( object );
+					const material = object.material;
+
+					if ( material.visible ) {
+
+						currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
+
+					}
+
+				}
+
+			} else if ( object.isMesh || object.isLine || object.isPoints ) {
+
+				if ( object.isSkinnedMesh ) {
+
+					// update skeleton only once in a frame
+
+					if ( object.skeleton.frame !== info.render.frame ) {
+
+						object.skeleton.update();
+						object.skeleton.frame = info.render.frame;
+
+					}
+
+				}
+
+				if ( ! object.frustumCulled || _frustum.intersectsObject( object ) ) {
+
+					if ( sortObjects ) {
+
+						_vector3.setFromMatrixPosition( object.matrixWorld )
+							.applyMatrix4( _projScreenMatrix );
+
+					}
+
+					const geometry = objects.update( object );
+					const material = object.material;
+
+					if ( Array.isArray( material ) ) {
+
+						const groups = geometry.groups;
+
+						for ( let i = 0, l = groups.length; i < l; i ++ ) {
+
+							const group = groups[ i ];
+							const groupMaterial = material[ group.materialIndex ];
+
+							if ( groupMaterial && groupMaterial.visible ) {
+
+								currentRenderList.push( object, geometry, groupMaterial, groupOrder, _vector3.z, group );
+
+							}
+
+						}
+
+					} else if ( material.visible ) {
+
+						currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
+
+					}
+
+				}
+
+			}
+
+		}
+
+		const children = object.children;
+
+		for ( let i = 0, l = children.length; i < l; i ++ ) {
+
+			projectObject( children[ i ], camera, groupOrder, sortObjects );
+
+		}
+
+	}
+
+	function renderScene( currentRenderList, scene, camera, viewport ) {
+
+		const opaqueObjects = currentRenderList.opaque;
+		const transmissiveObjects = currentRenderList.transmissive;
+		const transparentObjects = currentRenderList.transparent;
+
+		currentRenderState.setupLightsView( camera );
+
+		// TODO this triggers cubemap generation up front, should probably be done elsewhere
+		const reflectionProbes = currentRenderState.state.lights.state.reflectionProbes;
+		for ( let i = 0; i < reflectionProbes.length; i ++ ) {
+
+			cubeuvmaps.get( reflectionProbes[ i ].texture );
+
+		}
+
+		if ( transmissiveObjects.length > 0 ) renderTransmissionPass( opaqueObjects, scene, camera );
+
+		if ( viewport ) state.viewport( _currentViewport.copy( viewport ) );
+
+		if ( opaqueObjects.length > 0 ) renderObjects( opaqueObjects, scene, camera );
+		if ( transmissiveObjects.length > 0 ) renderObjects( transmissiveObjects, scene, camera );
+		if ( transparentObjects.length > 0 ) renderObjects( transparentObjects, scene, camera );
+
+		// Ensure depth buffer writing is enabled so it can be cleared on next render
+
+		state.buffers.depth.setTest( true );
+		state.buffers.depth.setMask( true );
+		state.buffers.color.setMask( true );
+
+		state.setPolygonOffset( false );
+
+	}
+
+	function renderTransmissionPass( opaqueObjects, scene, camera ) {
+
+		const isWebGL2 = capabilities.isWebGL2;
+
+		if ( _transmissionRenderTarget === null ) {
+
+			_transmissionRenderTarget = new WebGLRenderTarget( 1, 1, {
+				generateMipmaps: true,
+				type: extensions.has( 'EXT_color_buffer_half_float' ) ? HalfFloatType : UnsignedByteType,
+				minFilter: LinearMipmapLinearFilter,
+				samples: ( isWebGL2 && _antialias === true ) ? 4 : 0
+			} );
+
+		}
+
+		_this.getDrawingBufferSize( _vector2 );
+
+		if ( isWebGL2 ) {
+
+			_transmissionRenderTarget.setSize( _vector2.x, _vector2.y );
+
+		} else {
+
+			_transmissionRenderTarget.setSize( floorPowerOfTwo( _vector2.x ), floorPowerOfTwo( _vector2.y ) );
+
+		}
+
+		//
+
+		const currentRenderTarget = _this.getRenderTarget();
+		_this.setRenderTarget( _transmissionRenderTarget );
+		_this.clear();
+
+		// Turn off the features which can affect the frag color for opaque objects pass.
+		// Otherwise they are applied twice in opaque objects pass and transmission objects pass.
+		const currentToneMapping = _this.toneMapping;
+		_this.toneMapping = NoToneMapping;
+
+		renderObjects( opaqueObjects, scene, camera );
+
+		_this.toneMapping = currentToneMapping;
+
+		textures.updateMultisampleRenderTarget( _transmissionRenderTarget );
+		textures.updateRenderTargetMipmap( _transmissionRenderTarget );
+
+		_this.setRenderTarget( currentRenderTarget );
+
+	}
+
+	function renderObjects( renderList, scene, camera ) {
+
+		const overrideMaterial = scene.isScene === true ? scene.overrideMaterial : null;
+
+		for ( let i = 0, l = renderList.length; i < l; i ++ ) {
+
+			const renderItem = renderList[ i ];
+
+			const object = renderItem.object;
+			const geometry = renderItem.geometry;
+			const material = overrideMaterial === null ? renderItem.material : overrideMaterial;
+			const group = renderItem.group;
+
+			if ( object.layers.test( camera.layers ) ) {
+
+				renderObject( object, scene, camera, geometry, material, group );
+
+			}
+
+		}
+
+	}
+
+	function renderObject( object, scene, camera, geometry, material, group ) {
+
+		object.onBeforeRender( _this, scene, camera, geometry, material, group );
+
+		object.modelViewMatrix.multiplyMatrices( camera.matrixWorldInverse, object.matrixWorld );
+		object.normalMatrix.getNormalMatrix( object.modelViewMatrix );
+
+		material.onBeforeRender( _this, scene, camera, geometry, object, group );
+
+		if ( material.transparent === true && material.side === DoubleSide ) {
+
+			material.side = BackSide;
+			material.needsUpdate = true;
+			_this.renderBufferDirect( camera, scene, geometry, material, object, group );
+
+			material.side = FrontSide;
+			material.needsUpdate = true;
+			_this.renderBufferDirect( camera, scene, geometry, material, object, group );
+
+			material.side = DoubleSide;
+
+		} else {
+
+			_this.renderBufferDirect( camera, scene, geometry, material, object, group );
+
+		}
+
+		object.onAfterRender( _this, scene, camera, geometry, material, group );
+
+	}
+
+	function getProgram( material, scene, object ) {
+
+		if ( scene.isScene !== true ) scene = _emptyScene; // scene could be a Mesh, Line, Points, ...
+
+		const materialProperties = properties.get( material );
+
+		const lights = currentRenderState.state.lights;
+		const shadowsArray = currentRenderState.state.shadowsArray;
+
+		const lightsStateVersion = lights.state.version;
+
+		const parameters = programCache.getParameters( material, lights.state, shadowsArray, scene, object );
+		const programCacheKey = programCache.getProgramCacheKey( parameters );
+
+		let programs = materialProperties.programs;
+
+		// always update environment and fog - changing these trigger an getProgram call, but it's possible that the program doesn't change
+
+		materialProperties.environment = material.isMeshStandardMaterial ? scene.environment : null;
+		materialProperties.fog = scene.fog;
+		materialProperties.envMap = ( material.isMeshStandardMaterial ? cubeuvmaps : cubemaps ).get( material.envMap || materialProperties.environment );
+
+		if ( programs === undefined ) {
+
+			// new material
+
+			material.addEventListener( 'dispose', onMaterialDispose );
+
+			programs = new Map();
+			materialProperties.programs = programs;
+
+		}
+
+		let program = programs.get( programCacheKey );
+
+		if ( program !== undefined ) {
+
+			// early out if program and light state is identical
+
+			if ( materialProperties.currentProgram === program && materialProperties.lightsStateVersion === lightsStateVersion ) {
+
+				updateCommonMaterialProperties( material, parameters );
+
+				return program;
+
+			}
+
+		} else {
+
+			parameters.uniforms = programCache.getUniforms( material );
+
+			material.onBuild( object, parameters, _this );
+
+			material.onBeforeCompile( parameters, _this );
+
+			program = programCache.acquireProgram( parameters, programCacheKey );
+			programs.set( programCacheKey, program );
+
+			materialProperties.uniforms = parameters.uniforms;
+
+		}
+
+		const uniforms = materialProperties.uniforms;
+
+		if ( ( ! material.isShaderMaterial && ! material.isRawShaderMaterial ) || material.clipping === true ) {
+
+			uniforms.clippingPlanes = clipping.uniform;
+
+		}
+
+		updateCommonMaterialProperties( material, parameters );
+
+		// store the light setup it was created for
+
+		materialProperties.needsLights = materialNeedsLights( material );
+		materialProperties.lightsStateVersion = lightsStateVersion;
+
+		if ( materialProperties.needsLights ) {
+
+			// wire up the material to this renderer's lighting state
+
+			uniforms.ambientLightColor.value = lights.state.ambient;
+			uniforms.lightProbe.value = lights.state.probe;
+			uniforms.directionalLights.value = lights.state.directional;
+			uniforms.directionalLightShadows.value = lights.state.directionalShadow;
+			uniforms.spotLights.value = lights.state.spot;
+			uniforms.spotLightShadows.value = lights.state.spotShadow;
+			uniforms.rectAreaLights.value = lights.state.rectArea;
+			uniforms.ltc_1.value = lights.state.rectAreaLTC1;
+			uniforms.ltc_2.value = lights.state.rectAreaLTC2;
+			uniforms.pointLights.value = lights.state.point;
+			uniforms.pointLightShadows.value = lights.state.pointShadow;
+			uniforms.hemisphereLights.value = lights.state.hemi;
+
+			uniforms.directionalShadowMap.value = lights.state.directionalShadowMap;
+			uniforms.directionalShadowMatrix.value = lights.state.directionalShadowMatrix;
+			uniforms.spotShadowMap.value = lights.state.spotShadowMap;
+			uniforms.spotLightMatrix.value = lights.state.spotLightMatrix;
+			uniforms.spotLightMap.value = lights.state.spotLightMap;
+			uniforms.pointShadowMap.value = lights.state.pointShadowMap;
+			uniforms.pointShadowMatrix.value = lights.state.pointShadowMatrix;
+			// TODO (abelnation): add area lights shadow info to uniforms
+
+		}
+
+		const progUniforms = program.getUniforms();
+		const uniformsList = WebGLUniforms.seqWithValue( progUniforms.seq, uniforms );
+
+		materialProperties.currentProgram = program;
+		materialProperties.uniformsList = uniformsList;
+
+		return program;
+
+	}
+
+	function updateCommonMaterialProperties( material, parameters ) {
+
+		const materialProperties = properties.get( material );
+
+		materialProperties.outputEncoding = parameters.outputEncoding;
+		materialProperties.instancing = parameters.instancing;
+		materialProperties.skinning = parameters.skinning;
+		materialProperties.morphTargets = parameters.morphTargets;
+		materialProperties.morphNormals = parameters.morphNormals;
+		materialProperties.morphColors = parameters.morphColors;
+		materialProperties.morphTargetsCount = parameters.morphTargetsCount;
+		materialProperties.numClippingPlanes = parameters.numClippingPlanes;
+		materialProperties.numIntersection = parameters.numClipIntersection;
+		materialProperties.vertexAlphas = parameters.vertexAlphas;
+		materialProperties.vertexTangents = parameters.vertexTangents;
+		materialProperties.toneMapping = parameters.toneMapping;
+
+	}
+
+	function setProgram( camera, scene, geometry, material, object ) {
+
+		if ( scene.isScene !== true ) scene = _emptyScene; // scene could be a Mesh, Line, Points, ...
+
+		textures.resetTextureUnits();
+
+		const fog = scene.fog;
+		const environment = material.isMeshStandardMaterial ? scene.environment : null;
+		const encoding = ( _currentRenderTarget === null ) ? _this.outputEncoding : ( _currentRenderTarget.isXRRenderTarget === true ? _currentRenderTarget.texture.encoding : LinearEncoding );
+		const envMap = ( material.isMeshStandardMaterial ? cubeuvmaps : cubemaps ).get( material.envMap || environment );
+		const vertexAlphas = material.vertexColors === true && !! geometry.attributes.color && geometry.attributes.color.itemSize === 4;
+		const vertexTangents = !! material.normalMap && !! geometry.attributes.tangent;
+		const morphTargets = !! geometry.morphAttributes.position;
+		const morphNormals = !! geometry.morphAttributes.normal;
+		const morphColors = !! geometry.morphAttributes.color;
+		const toneMapping = material.toneMapped ? _this.toneMapping : NoToneMapping;
+
+		const morphAttribute = geometry.morphAttributes.position || geometry.morphAttributes.normal || geometry.morphAttributes.color;
+		const morphTargetsCount = ( morphAttribute !== undefined ) ? morphAttribute.length : 0;
+
+		const materialProperties = properties.get( material );
+		const lights = currentRenderState.state.lights;
+
+		if ( _clippingEnabled === true ) {
+
+			if ( _localClippingEnabled === true || camera !== _currentCamera ) {
+
+				const useCache =
+					camera === _currentCamera &&
+					material.id === _currentMaterialId;
+
+				// we might want to call this function with some ClippingGroup
+				// object instead of the material, once it becomes feasible
+				// (#8465, #8379)
+				clipping.setState( material, camera, useCache );
+
+			}
+
+		}
+
+		//
+
+		let needsProgramChange = false;
+
+		if ( material.version === materialProperties.__version ) {
+
+			if ( materialProperties.needsLights && ( materialProperties.lightsStateVersion !== lights.state.version ) ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.outputEncoding !== encoding ) {
+
+				needsProgramChange = true;
+
+			} else if ( object.isInstancedMesh && materialProperties.instancing === false ) {
+
+				needsProgramChange = true;
+
+			} else if ( ! object.isInstancedMesh && materialProperties.instancing === true ) {
+
+				needsProgramChange = true;
+
+			} else if ( object.isSkinnedMesh && materialProperties.skinning === false ) {
+
+				needsProgramChange = true;
+
+			} else if ( ! object.isSkinnedMesh && materialProperties.skinning === true ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.envMap !== envMap ) {
+
+				needsProgramChange = true;
+
+			} else if ( material.fog === true && materialProperties.fog !== fog ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.numClippingPlanes !== undefined &&
+				( materialProperties.numClippingPlanes !== clipping.numPlanes ||
+				materialProperties.numIntersection !== clipping.numIntersection ) ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.vertexAlphas !== vertexAlphas ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.vertexTangents !== vertexTangents ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.morphTargets !== morphTargets ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.morphNormals !== morphNormals ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.morphColors !== morphColors ) {
+
+				needsProgramChange = true;
+
+			} else if ( materialProperties.toneMapping !== toneMapping ) {
+
+				needsProgramChange = true;
+
+			} else if ( capabilities.isWebGL2 === true && materialProperties.morphTargetsCount !== morphTargetsCount ) {
+
+				needsProgramChange = true;
+
+			}
+
+		} else {
+
+			needsProgramChange = true;
+			materialProperties.__version = material.version;
+
+		}
+
+		//
+
+		let program = materialProperties.currentProgram;
+
+		if ( needsProgramChange === true ) {
+
+			program = getProgram( material, scene, object );
+
+		}
+
+		let refreshProgram = false;
+		let refreshMaterial = false;
+		let refreshLights = false;
+
+		const p_uniforms = program.getUniforms(),
+			m_uniforms = materialProperties.uniforms;
+
+		if ( state.useProgram( program.program ) ) {
+
+			refreshProgram = true;
+			refreshMaterial = true;
+			refreshLights = true;
+
+		}
+
+		if ( material.id !== _currentMaterialId ) {
+
+			_currentMaterialId = material.id;
+
+			refreshMaterial = true;
+
+		}
+
+		if ( refreshProgram || _currentCamera !== camera ) {
+
+			p_uniforms.setValue( _gl, 'projectionMatrix', camera.projectionMatrix );
+
+			if ( capabilities.logarithmicDepthBuffer ) {
+
+				p_uniforms.setValue( _gl, 'logDepthBufFC',
+					2.0 / ( Math.log( camera.far + 1.0 ) / Math.LN2 ) );
+
+			}
+
+			if ( _currentCamera !== camera ) {
+
+				_currentCamera = camera;
+
+				// lighting uniforms depend on the camera so enforce an update
+				// now, in case this material supports lights - or later, when
+				// the next material that does gets activated:
+
+				refreshMaterial = true;		// set to true on material change
+				refreshLights = true;		// remains set until update done
+
+			}
+
+			// load material specific uniforms
+			// (shader material also gets them for the sake of genericity)
+
+			if ( material.isShaderMaterial ||
+				material.isMeshPhongMaterial ||
+				material.isMeshToonMaterial ||
+				material.isMeshStandardMaterial ||
+				material.envMap ) {
+
+				const uCamPos = p_uniforms.map.cameraPosition;
+
+				if ( uCamPos !== undefined ) {
+
+					uCamPos.setValue( _gl,
+						_vector3.setFromMatrixPosition( camera.matrixWorld ) );
+
+				}
+
+			}
+
+			if ( material.isMeshPhongMaterial ||
+				material.isMeshToonMaterial ||
+				material.isMeshLambertMaterial ||
+				material.isMeshBasicMaterial ||
+				material.isMeshStandardMaterial ||
+				material.isShaderMaterial ) {
+
+				p_uniforms.setValue( _gl, 'isOrthographic', camera.isOrthographicCamera === true );
+
+			}
+
+			if ( material.isMeshPhongMaterial ||
+				material.isMeshToonMaterial ||
+				material.isMeshLambertMaterial ||
+				material.isMeshBasicMaterial ||
+				material.isMeshStandardMaterial ||
+				material.isShaderMaterial ||
+				material.isShadowMaterial ||
+				object.isSkinnedMesh ) {
+
+				p_uniforms.setValue( _gl, 'viewMatrix', camera.matrixWorldInverse );
+
+			}
+
+		}
+
+		// skinning and morph target uniforms must be set even if material didn't change
+		// auto-setting of texture unit for bone and morph texture must go before other textures
+		// otherwise textures used for skinning and morphing can take over texture units reserved for other material textures
+
+		if ( object.isSkinnedMesh ) {
+
+			p_uniforms.setOptional( _gl, object, 'bindMatrix' );
+			p_uniforms.setOptional( _gl, object, 'bindMatrixInverse' );
+
+			const skeleton = object.skeleton;
+
+			if ( skeleton ) {
+
+				if ( capabilities.floatVertexTextures ) {
+
+					if ( skeleton.boneTexture === null ) skeleton.computeBoneTexture();
+
+					p_uniforms.setValue( _gl, 'boneTexture', skeleton.boneTexture, textures );
+					p_uniforms.setValue( _gl, 'boneTextureSize', skeleton.boneTextureSize );
+
+				} else {
+
+					console.warn( 'THREE.WebGLRenderer: SkinnedMesh can only be used with WebGL 2. With WebGL 1 OES_texture_float and vertex textures support is required.' );
+
+				}
+
+			}
+
+		}
+
+		// This is not done in refreshMaterialUniforms because we want to be able to support the same material using different environment map (based on its location)
+		// Because of this, similar to the above note about skinned meshes, this must be done before refreshMaterialUniforms is called, and both texture uniforms must
+		// be set in all cases to prevent texture units from becoming out of sync when refreshMaterials is not set and thus refreshMaterialUniforms is not called.
+		if ( materialProperties.envMap && material.isMeshStandardMaterial ) {
+
+			const probes = lights.state.reflectionProbes;
+
+			// this is essentially the same as the original codepath without ReflectionProbes, with the addition of setting envMap2 and envMapBlend to noop values
+			if ( material.envMap || ! probes.length || ! object.reflectionProbeMode ) {
+
+				p_uniforms.setValue( _gl, 'envMap', materialProperties.envMap, textures );
+				p_uniforms.setValue( _gl, 'envMap2', materialProperties.envMap, textures );
+				p_uniforms.setValue( _gl, 'envMapBlend', 0 );
+
+			} else if ( object.reflectionProbeMode === 'static' && object.__webglStaticReflectionProbe ) {
+
+				p_uniforms.setValue( _gl, 'envMap', object.__webglStaticReflectionProbe.envMap, textures );
+				p_uniforms.setValue( _gl, 'envMap2', object.__webglStaticReflectionProbe.envMap2, textures );
+				p_uniforms.setValue( _gl, 'envMapBlend', object.__webglStaticReflectionProbe.envMapBlend );
+
+			} else {
+
+				if ( ! geometry.boundingBox ) {
+
+					console.log( 'generated bounding box for ', object.name );
+					geometry.computeBoundingBox();
+
+				}
+
+				_tmpObjectAABB.copy( geometry.boundingBox ).applyMatrix4( object.matrixWorld );
+
+				let envMapA = null;
+				let envMapB = null;
+				let maxVolumeA = 0;
+				let maxVolumeB = 0;
+
+				for ( let i = 0; i < probes.length; i ++ ) {
+
+					if ( probes[ i ].box.intersectsBox( _tmpObjectAABB ) ) {
+
+						const volume = nonZeroBoxVolume( _tmpOverlapBox.copy( _tmpObjectAABB ).intersect( probes[ i ].box ) );
+						if ( volume > maxVolumeA ) {
+
+							envMapB = envMapA;
+							maxVolumeB = maxVolumeA;
+							envMapA = probes[ i ].texture;
+							maxVolumeA = volume;
+
+						} else if ( volume > maxVolumeB ) {
+
+							envMapB = probes[ i ].texture;
+							maxVolumeB = volume;
+
+						}
+
+					}
+
+				}
+
+				const blend = envMapB ?
+					  maxVolumeB / ( maxVolumeA + maxVolumeB ) :
+					  1 - ( maxVolumeA / nonZeroBoxVolume( _tmpObjectAABB ) );
+
+				envMapA = ( material.isMeshStandardMaterial ? cubeuvmaps : cubemaps ).get( envMapA || environment );
+				envMapB = ( material.isMeshStandardMaterial ? cubeuvmaps : cubemaps ).get( envMapB || environment );
+
+				p_uniforms.setValue( _gl, 'envMap', envMapA, textures );
+				p_uniforms.setValue( _gl, 'envMap2', envMapB, textures );
+				p_uniforms.setValue( _gl, 'envMapBlend', blend );
+
+				if ( object.reflectionProbeMode === 'static' ) {
+
+					object.__webglStaticReflectionProbe = {
+						envMap: envMapA,
+						envMap2: envMapB,
+						envMapBlend: blend
+					};
+
+				}
+
+			}
+
+		}
+
+		const morphAttributes = geometry.morphAttributes;
+
+		if ( morphAttributes.position !== undefined || morphAttributes.normal !== undefined || ( morphAttributes.color !== undefined && capabilities.isWebGL2 === true ) ) {
+
+			morphtargets.update( object, geometry, material, program );
+
+		}
+
+		if ( refreshMaterial || materialProperties.receiveShadow !== object.receiveShadow ) {
+
+			materialProperties.receiveShadow = object.receiveShadow;
+			p_uniforms.setValue( _gl, 'receiveShadow', object.receiveShadow );
+
+		}
+
+		// https://github.com/mrdoob/three.js/pull/24467#issuecomment-1209031512
+
+		if ( material.isMeshGouraudMaterial && material.envMap !== null ) {
+
+			m_uniforms.envMap.value = envMap;
+
+			m_uniforms.flipEnvMap.value = ( envMap.isCubeTexture && envMap.isRenderTargetTexture === false ) ? - 1 : 1;
+
+		}
+
+		if ( refreshMaterial ) {
+
+			p_uniforms.setValue( _gl, 'toneMappingExposure', _this.toneMappingExposure );
+			p_uniforms.setValue( _gl, 'tonemappingLUT', _this.tonemappingLUT, textures );
 
 			if ( materialProperties.needsLights ) {
 

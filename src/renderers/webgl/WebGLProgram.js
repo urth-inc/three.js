@@ -1,7 +1,7 @@
 import { WebGLUniforms } from './WebGLUniforms.js';
 import { WebGLShader } from './WebGLShader.js';
 import { ShaderChunk } from '../shaders/ShaderChunk.js';
-import { NoToneMapping, AddOperation, MixOperation, MultiplyOperation, CubeRefractionMapping, CubeUVReflectionMapping, CubeReflectionMapping, PCFSoftShadowMap, PCFShadowMap, VSMShadowMap, ACESFilmicToneMapping, CineonToneMapping, CustomToneMapping, ReinhardToneMapping, LinearToneMapping, GLSL3, LinearSRGBColorSpace, SRGBColorSpace } from '../../constants.js';
+import { NoToneMapping, AddOperation, MixOperation, MultiplyOperation, CubeRefractionMapping, CubeUVReflectionMapping, CubeReflectionMapping, PCFSoftShadowMap, PCFShadowMap, VSMShadowMap, ACESFilmicToneMapping, CineonToneMapping, CustomToneMapping, ReinhardToneMapping, LinearToneMapping, sRGBEncoding, GLSL3, LinearSRGBColorSpace, SRGBColorSpace, LUTToneMapping } from '../../constants.js';
 
 let programIdCount = 0;
 
@@ -95,6 +95,10 @@ function getToneMappingFunction( functionName, toneMapping ) {
 
 		case CustomToneMapping:
 			toneMappingName = 'Custom';
+			break;
+
+		case LUTToneMapping:
+			toneMappingName = 'LUT';
 			break;
 
 		default:
@@ -569,10 +573,13 @@ function WebGLProgram( renderer, cacheKey, parameters, bindingStates ) {
 
 			parameters.morphTargets ? '#define USE_MORPHTARGETS' : '',
 			parameters.morphNormals && parameters.flatShading === false ? '#define USE_MORPHNORMALS' : '',
-			( parameters.morphColors && parameters.isWebGL2 ) ? '#define USE_MORPHCOLORS' : '',
-			( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_TEXTURE' : '',
-			( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_TEXTURE_STRIDE ' + parameters.morphTextureStride : '',
-			( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_COUNT ' + parameters.morphTargetsCount : '',
+
+			// This causes issues on some systems, disable for now
+			// ( parameters.morphColors && parameters.isWebGL2 ) ? '#define USE_MORPHCOLORS' : '',
+			// ( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_TEXTURE' : '',
+			// ( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_TEXTURE_STRIDE ' + parameters.morphTextureStride : '',
+			// ( parameters.morphTargetsCount > 0 && parameters.isWebGL2 ) ? '#define MORPHTARGETS_COUNT ' + parameters.morphTargetsCount : '',
+
 			parameters.doubleSided ? '#define DOUBLE_SIDED' : '',
 			parameters.flipSided ? '#define FLIP_SIDED' : '',
 
@@ -773,6 +780,7 @@ function WebGLProgram( renderer, cacheKey, parameters, bindingStates ) {
 			'uniform bool isOrthographic;',
 
 			( parameters.toneMapping !== NoToneMapping ) ? '#define TONE_MAPPING' : '',
+			( parameters.toneMapping === LUTToneMapping ) ? '#define LUT_TONE_MAPPING' : '',
 			( parameters.toneMapping !== NoToneMapping ) ? ShaderChunk[ 'tonemapping_pars_fragment' ] : '', // this code is required here because it is used by the toneMapping() function defined below
 			( parameters.toneMapping !== NoToneMapping ) ? getToneMappingFunction( 'toneMapping', parameters.toneMapping ) : '',
 
