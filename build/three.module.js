@@ -22348,7 +22348,7 @@ function WebGLState( gl, extensions, capabilities ) {
 	const currentScissor = new Vector4().fromArray( scissorParam );
 	const currentViewport = new Vector4().fromArray( viewportParam );
 
-	function createTexture( type, target, count ) {
+	function createTexture( type, target, count, dimensions ) {
 
 		const data = new Uint8Array( 4 ); // 4 is required to match default unpack alignment of 4.
 		const texture = gl.createTexture();
@@ -22359,7 +22359,15 @@ function WebGLState( gl, extensions, capabilities ) {
 
 		for ( let i = 0; i < count; i ++ ) {
 
-			gl.texImage2D( target + i, 0, 6408, 1, 1, 0, 6408, 5121, data );
+			if ( isWebGL2 && ( type === 32879 || type === 35866 ) ) {
+
+				gl.texImage3D( target, 0, 6408, 1, 1, dimensions, 0, 6408, 5121, data );
+
+			} else {
+
+				gl.texImage2D( target + i, 0, 6408, 1, 1, 0, 6408, 5121, data );
+
+			}
 
 		}
 
@@ -22370,6 +22378,13 @@ function WebGLState( gl, extensions, capabilities ) {
 	const emptyTextures = {};
 	emptyTextures[ 3553 ] = createTexture( 3553, 3553, 1 );
 	emptyTextures[ 34067 ] = createTexture( 34067, 34069, 6 );
+
+	if ( isWebGL2 ) {
+
+		emptyTextures[ 35866 ] = createTexture( 35866, 35866, 1, 1 );
+		emptyTextures[ 32879 ] = createTexture( 32879, 32879, 1, 1 );
+
+	}
 
 	// init
 
