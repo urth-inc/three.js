@@ -97,29 +97,6 @@ class SkinnedMesh extends Mesh {
 
 	}
 
-	// raycast( raycaster, intersects ) {
-
-	// 	if ( this.boundingSphere === null ) this.computeBoundingSphere();
-
-	// 	_sphere.copy( this.boundingSphere );
-	// 	_sphere.applyMatrix4( this.matrixWorld );
-
-	// 	if ( raycaster.ray.intersectsSphere( _sphere ) === false ) return;
-
-	// 	this._computeIntersections( raycaster, intersects );
-
-	// }
-
-	getVertexPosition( index, target ) {
-
-		super.getVertexPosition( index, target );
-
-		this.applyBoneTransform( index, target );
-
-		return target;
-
-	}
-
 	bind( skeleton, bindMatrix ) {
 
 		this.skeleton = skeleton;
