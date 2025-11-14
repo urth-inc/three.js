@@ -14349,13 +14349,6 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			uniforms: /*@__PURE__*/ mergeUniforms( [
 				UniformsLib.common,
-				( () => {
-
-					// TODO HACK don't include envMap uniform, it is currently handling directly in WebGLRenderer for ReflectionProbes support
-					const { envMap, ...rest } = UniformsLib.envmap; // eslint-disable-line no-unused-vars
-					return rest;
-
-				} )(),
 				UniformsLib.aomap,
 				UniformsLib.lightmap,
 				UniformsLib.emissivemap,
