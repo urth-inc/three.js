@@ -28983,21 +28983,20 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 						}
 
 					} else if ( object.isMesh || object.isLine || object.isPoints ) {
+	if ( object.isSkinnedMesh ) {
 
-						if ( ! object.frustumCulled || _frustum.intersectsObject( object ) ) {
+							// update skeleton only once in a frame
 
-							if ( object.isSkinnedMesh ) {
+							if ( object.skeleton.frame !== info.render.frame ) {
 
-								// update skeleton only once in a frame
-
-								if ( object.skeleton.frame !== info.render.frame ) {
-
-									object.skeleton.update();
-									object.skeleton.frame = info.render.frame;
-
-								}
+								object.skeleton.update();
+								object.skeleton.frame = info.render.frame;
 
 							}
+
+						}
+
+						if ( ! object.frustumCulled || _frustum.intersectsObject( object ) ) {
 
 							const geometry = objects.update( object );
 							const material = object.material;
