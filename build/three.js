@@ -65,6 +65,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 	const CineonToneMapping = 3;
 	const ACESFilmicToneMapping = 4;
 	const CustomToneMapping = 5;
+	const LUTToneMapping = 6;
 
 	const UVMapping = 300;
 	const CubeReflectionMapping = 301;
@@ -3737,6 +3738,16 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 		}
 
+		// [HUBS] Similar to equals() but allows the diff under eps
+		near( quaternion, eps = Number.EPSILON ) {
+
+			return ( Math.abs( quaternion._x - this._x ) < eps ) &&
+				( Math.abs( quaternion._y - this._y ) < eps ) &&
+				( Math.abs( quaternion._z - this._z ) < eps ) &&
+				( Math.abs( quaternion._w - this._w ) < eps );
+
+		}
+
 		fromArray( array, offset = 0 ) {
 
 			this._x = array[ offset ];
@@ -4448,6 +4459,15 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 		equals( v ) {
 
 			return ( ( v.x === this.x ) && ( v.y === this.y ) && ( v.z === this.z ) );
+
+		}
+
+		// [HUBS] Similar to equals() but allows the diff under eps
+		near( v, eps = Number.EPSILON ) {
+
+			return ( Math.abs( v.x - this.x ) < eps ) &&
+				( Math.abs( v.y - this.y ) < eps ) &&
+				( Math.abs( v.z - this.z ) < eps );
 
 		}
 
@@ -6570,6 +6590,22 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 		}
 
+		// [HUBS] Similar to equals() but allow the diff under eps.
+		near( matrix, eps = Number.EPSILON ) {
+
+			const te = this.elements;
+			const me = matrix.elements;
+
+			for ( let i = 0; i < 16; i ++ ) {
+
+				if ( Math.abs( te[ i ] - me[ i ] ) >= eps ) return false;
+
+			}
+
+			return true;
+
+		}
+
 		fromArray( array, offset = 0 ) {
 
 			for ( let i = 0; i < 16; i ++ ) {
@@ -6992,7 +7028,9 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	const _v1$4 = /*@__PURE__*/ new Vector3();
 	const _q1 = /*@__PURE__*/ new Quaternion();
+	const _q2 = /*@__PURE__*/ new Quaternion();
 	const _m1$1 = /*@__PURE__*/ new Matrix4();
+	const _m2 = /*@__PURE__*/ new Matrix4();
 	const _target = /*@__PURE__*/ new Vector3();
 
 	const _position$3 = /*@__PURE__*/ new Vector3();
@@ -7005,6 +7043,14 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	const _addedEvent = { type: 'added' };
 	const _removedEvent = { type: 'removed' };
+
+	const _zeroPos = new Vector3( 0, 0, 0 );
+	const _zeroQuat = new Quaternion();
+	const _oneScale = new Vector3( 1, 1, 1 );
+	const _identity$1 = new Matrix4();
+	_identity$1.identity();
+
+	const _epsilon = 0.00000000001;
 
 	class Object3D extends EventDispatcher {
 
@@ -7083,11 +7129,18 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			this.matrixWorldAutoUpdate = Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE; // checked by the renderer
 
+			// [HUBS] Special flags to avoid unnecessary matrices update
+			this.matrixNeedsUpdate = false;
+			this.childrenNeedMatrixWorldUpdate = false;
+			this.matrixIsModified = false;
+			this.hasHadFirstMatrixUpdate = false;
+
 			this.layers = new Layers();
 			this.visible = true;
 
 			this.castShadow = false;
 			this.receiveShadow = false;
+			this.reflectionProbeMode = false;
 
 			this.frustumCulled = true;
 			this.renderOrder = 0;
@@ -7109,6 +7162,8 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			this.matrix.premultiply( matrix );
 
 			this.matrix.decompose( this.position, this.quaternion, this.scale );
+
+			this._handleMatrixModification( this );
 
 		}
 
@@ -7272,6 +7327,8 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			}
 
+			_q2.copy( this.quaternion );
+
 			this.quaternion.setFromRotationMatrix( _m1$1 );
 
 			if ( parent ) {
@@ -7279,6 +7336,16 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 				_m1$1.extractRotation( parent.matrixWorld );
 				_q1.setFromRotationMatrix( _m1$1 );
 				this.quaternion.premultiply( _q1.invert() );
+
+			}
+
+			if ( _q2.near( this.quaternion, _epsilon ) ) {
+
+				this.quaternion.copy( _q2 );
+
+			} else {
+
+				this.matrixNeedsUpdate = true;
 
 			}
 
@@ -7315,6 +7382,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 				object.parent = this;
 				this.children.push( object );
+				object.matrixWorldNeedsUpdate = true;
 
 				object.dispatchEvent( _addedEvent );
 
@@ -7348,6 +7416,13 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 				object.parent = null;
 				this.children.splice( index, 1 );
+
+				if ( object.hasHadFirstMatrixUpdate && ! object.matrixIsModified ) {
+
+					object.hasHadFirstMatrixUpdate = false;
+					object.matrixWorld = object.cachedMatrixWorld;
+
+				}
 
 				object.dispatchEvent( _removedEvent );
 
@@ -7563,73 +7638,60 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			this.matrixWorldNeedsUpdate = true;
 
+			this._handleMatrixModification( this );
+
 		}
 
-		updateMatrixWorld( force ) {
+		// [HUBS] Computes this object's matrices and then the recursively computes the matrices of all the children.
+		//
+		// forceWorldUpdate - If true and the object is visible, will force the world matrix to be updated for
+		// this node and all of its children.
+		//
+		// includeInvisible - If true, does not ignore non-visible objects.
+		updateMatrixWorld( forceWorldUpdate, includeInvisible ) {
 
-			if ( this.matrixAutoUpdate ) this.updateMatrix();
+			if ( ! this.visible && ! includeInvisible ) {
 
-			if ( this.matrixWorldNeedsUpdate || force ) {
+				if ( forceWorldUpdate ) {
 
-				if ( this.parent === null ) {
-
-					this.matrixWorld.copy( this.matrix );
-
-				} else {
-
-					this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+					this.matrixWorldNeedsUpdate = true;
 
 				}
 
-				this.matrixWorldNeedsUpdate = false;
-
-				force = true;
+				return;
 
 			}
 
-			// update children
+			// Do not recurse upwards, since this is recursing downwards
+			this.updateMatrices( false, forceWorldUpdate, true );
 
 			const children = this.children;
+			const forceChildrenWorldUpdate = this.childrenNeedMatrixWorldUpdate || forceWorldUpdate;
 
 			for ( let i = 0, l = children.length; i < l; i ++ ) {
 
 				const child = children[ i ];
 
-				if ( child.matrixWorldAutoUpdate === true || force === true ) {
+				if ( child.matrixWorldAutoUpdate === true ) {
 
-					child.updateMatrixWorld( force );
+					child.updateMatrixWorld( forceChildrenWorldUpdate, includeInvisible );
 
 				}
 
 			}
 
+			this.childrenNeedMatrixWorldUpdate = false;
+
 		}
 
+
+		// [HUBS] Updates this function to use updateMatrices(). In general our code should prefer calling updateMatrices() directly,
+		// patching this for compatibility upstream, namely with Box3.expandToObject and Object3D.attach
 		updateWorldMatrix( updateParents, updateChildren ) {
 
-			const parent = this.parent;
+			this.updateMatrices( false, false, ! updateParents );
 
-			if ( updateParents === true && parent !== null && parent.matrixWorldAutoUpdate === true ) {
-
-				parent.updateWorldMatrix( true, false );
-
-			}
-
-			if ( this.matrixAutoUpdate ) this.updateMatrix();
-
-			if ( this.parent === null ) {
-
-				this.matrixWorld.copy( this.matrix );
-
-			} else {
-
-				this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
-
-			}
-
-			// update children
-
-			if ( updateChildren === true ) {
+			if ( updateChildren ) {
 
 				const children = this.children;
 
@@ -7639,11 +7701,109 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 					if ( child.matrixWorldAutoUpdate === true ) {
 
-						child.updateWorldMatrix( false, true );
+						child.updateMatrixWorld( false, false );
 
 					}
 
 				}
+
+				this.childrenNeedMatrixWorldUpdate = false;
+
+			}
+
+		}
+
+		// [HUBS] By the end of this function this.matrix reflects the updated local matrix
+		// and this.matrixWorld reflects the updated world matrix, taking into account
+		// parent matrices.
+		//
+		// forceLocalUpdate - Forces the local matrix to be updated regardless of if it has not
+		// been marked dirty.
+		//
+		// forceWorldUpdate - Forces the world matrix to be updated regardless of if the local matrix
+		// has been updated since the last update.
+		//
+		// skipParents - unless true, all parent matricies are updated before updating this object's
+		// local and world matrix.
+		//
+		updateMatrices( forceLocalUpdate, forceWorldUpdate, skipParents ) {
+
+			if ( ! this.hasHadFirstMatrixUpdate ) {
+
+				if (
+					! this.position.equals( _zeroPos ) ||
+						! this.quaternion.equals( _zeroQuat ) ||
+						! this.scale.equals( _oneScale ) ||
+						! this.matrix.equals( _identity$1 )
+				) {
+
+					// Only update the matrix the first time if its non-identity, this way
+					// this.matrixIsModified will remain false until the default
+					// identity matrix is updated.
+					this.updateMatrix();
+
+				}
+
+				this.hasHadFirstMatrixUpdate = true;
+				this.matrixWorldNeedsUpdate = true;
+				this.cachedMatrixWorld = this.matrixWorld;
+
+			} else if ( this.matrixNeedsUpdate || this.matrixAutoUpdate || forceLocalUpdate ) {
+
+				// updateMatrix() sets matrixWorldNeedsUpdate = true
+				this.updateMatrix();
+				this.matrixNeedsUpdate = false;
+
+			}
+
+			if ( ! skipParents && this.parent ) {
+
+				this.parent.updateMatrices( false, forceWorldUpdate, false );
+				this.matrixWorldNeedsUpdate = this.matrixWorldNeedsUpdate || this.parent.childrenNeedMatrixWorldUpdate;
+
+			}
+
+			if ( this.matrixWorldNeedsUpdate || forceWorldUpdate ) {
+
+				_m2.copy( this.matrixWorld );
+
+				if ( this.parent === null ) {
+
+					this.matrixWorld.copy( this.matrix );
+
+				} else {
+
+					// If the matrix is unmodified, it is the identity matrix,
+					// and hence we can use the parent's world matrix directly.
+					//
+					// Note this assumes all callers will either not pass skipParents=true
+					// *or* will update the parent themselves beforehand as is done in
+					// updateMatrixWorld.
+					if ( ! this.matrixIsModified ) {
+
+						this.matrixWorld = this.parent.matrixWorld;
+
+					} else {
+
+						// Once matrixIsModified === true, this.matrixWorld has been updated to be a local
+						// copy, not a reference to this.parent.matrixWorld (see updateMatrix/applyMatrix)
+						this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+
+					}
+
+				}
+
+				if ( _m2.near( this.matrixWorld, _epsilon ) ) {
+
+					this.matrixWorld.copy( _m2 );
+
+				} else {
+
+					this.childrenNeedMatrixWorldUpdate = true;
+
+				}
+
+				this.matrixWorldNeedsUpdate = false;
 
 			}
 
@@ -7942,6 +8102,23 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			}
 
 			return this;
+
+		}
+
+		_handleMatrixModification() {
+
+			if ( ! this.matrixIsModified ) {
+
+				this.matrixIsModified = true;
+
+				if ( this.cachedMatrixWorld ) {
+
+					this.cachedMatrixWorld.copy( this.matrixWorld );
+					this.matrixWorld = this.cachedMatrixWorld;
+
+				}
+
+			}
 
 		}
 
@@ -12695,6 +12872,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 					vec3 direction = normalize( vWorldDirection );
 
 					vec2 sampleUV = equirectUv( direction );
+					${! texture.flipY ? 'sampleUV.y = 1.0 - sampleUV.y;' : ''}
 
 					gl_FragColor = texture2D( tEquirect, sampleUV );
 
@@ -13519,7 +13697,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	var envmap_fragment = "#ifdef USE_ENVMAP\n\t#ifdef ENV_WORLDPOS\n\t\tvec3 cameraToFrag;\n\t\tif ( isOrthographic ) {\n\t\t\tcameraToFrag = normalize( vec3( - viewMatrix[ 0 ][ 2 ], - viewMatrix[ 1 ][ 2 ], - viewMatrix[ 2 ][ 2 ] ) );\n\t\t} else {\n\t\t\tcameraToFrag = normalize( vWorldPosition - cameraPosition );\n\t\t}\n\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvec3 reflectVec = reflect( cameraToFrag, worldNormal );\n\t\t#else\n\t\t\tvec3 reflectVec = refract( cameraToFrag, worldNormal, refractionRatio );\n\t\t#endif\n\t#else\n\t\tvec3 reflectVec = vReflect;\n\t#endif\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tvec4 envColor = textureCube( envMap, vec3( flipEnvMap * reflectVec.x, reflectVec.yz ) );\n\t#else\n\t\tvec4 envColor = vec4( 0.0 );\n\t#endif\n\t#ifdef ENVMAP_BLENDING_MULTIPLY\n\t\toutgoingLight = mix( outgoingLight, outgoingLight * envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_MIX )\n\t\toutgoingLight = mix( outgoingLight, envColor.xyz, specularStrength * reflectivity );\n\t#elif defined( ENVMAP_BLENDING_ADD )\n\t\toutgoingLight += envColor.xyz * specularStrength * reflectivity;\n\t#endif\n#endif";
 
-	var envmap_common_pars_fragment = "#ifdef USE_ENVMAP\n\tuniform float envMapIntensity;\n\tuniform float flipEnvMap;\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tuniform samplerCube envMap;\n\t#else\n\t\tuniform sampler2D envMap;\n\t#endif\n\t\n#endif";
+	var envmap_common_pars_fragment = "#ifdef USE_ENVMAP\n\tuniform float envMapIntensity;\n\tuniform float flipEnvMap;\n\tuniform float envMapBlend;\n\t#ifdef ENVMAP_TYPE_CUBE\n\t\tuniform samplerCube envMap;\n\t#else\n\t\tuniform sampler2D envMap;\n\t\tuniform sampler2D envMap2;\n\t#endif\n\t\n#endif";
 
 	var envmap_pars_fragment = "#ifdef USE_ENVMAP\n\tuniform float reflectivity;\n\t#if defined( USE_BUMPMAP ) || defined( USE_NORMALMAP ) || defined( PHONG ) || defined( LAMBERT )\n\t\t#define ENV_WORLDPOS\n\t#endif\n\t#ifdef ENV_WORLDPOS\n\t\tvarying vec3 vWorldPosition;\n\t\tuniform float refractionRatio;\n\t#else\n\t\tvarying vec3 vReflect;\n\t#endif\n#endif";
 
@@ -13547,7 +13725,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	var lights_pars_begin = "uniform bool receiveShadow;\nuniform vec3 ambientLightColor;\nuniform vec3 lightProbe[ 9 ];\nvec3 shGetIrradianceAt( in vec3 normal, in vec3 shCoefficients[ 9 ] ) {\n\tfloat x = normal.x, y = normal.y, z = normal.z;\n\tvec3 result = shCoefficients[ 0 ] * 0.886227;\n\tresult += shCoefficients[ 1 ] * 2.0 * 0.511664 * y;\n\tresult += shCoefficients[ 2 ] * 2.0 * 0.511664 * z;\n\tresult += shCoefficients[ 3 ] * 2.0 * 0.511664 * x;\n\tresult += shCoefficients[ 4 ] * 2.0 * 0.429043 * x * y;\n\tresult += shCoefficients[ 5 ] * 2.0 * 0.429043 * y * z;\n\tresult += shCoefficients[ 6 ] * ( 0.743125 * z * z - 0.247708 );\n\tresult += shCoefficients[ 7 ] * 2.0 * 0.429043 * x * z;\n\tresult += shCoefficients[ 8 ] * 0.429043 * ( x * x - y * y );\n\treturn result;\n}\nvec3 getLightProbeIrradiance( const in vec3 lightProbe[ 9 ], const in vec3 normal ) {\n\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\tvec3 irradiance = shGetIrradianceAt( worldNormal, lightProbe );\n\treturn irradiance;\n}\nvec3 getAmbientLightIrradiance( const in vec3 ambientLightColor ) {\n\tvec3 irradiance = ambientLightColor;\n\treturn irradiance;\n}\nfloat getDistanceAttenuation( const in float lightDistance, const in float cutoffDistance, const in float decayExponent ) {\n\t#if defined ( LEGACY_LIGHTS )\n\t\tif ( cutoffDistance > 0.0 && decayExponent > 0.0 ) {\n\t\t\treturn pow( saturate( - lightDistance / cutoffDistance + 1.0 ), decayExponent );\n\t\t}\n\t\treturn 1.0;\n\t#else\n\t\tfloat distanceFalloff = 1.0 / max( pow( lightDistance, decayExponent ), 0.01 );\n\t\tif ( cutoffDistance > 0.0 ) {\n\t\t\tdistanceFalloff *= pow2( saturate( 1.0 - pow4( lightDistance / cutoffDistance ) ) );\n\t\t}\n\t\treturn distanceFalloff;\n\t#endif\n}\nfloat getSpotAttenuation( const in float coneCosine, const in float penumbraCosine, const in float angleCosine ) {\n\treturn smoothstep( coneCosine, penumbraCosine, angleCosine );\n}\n#if NUM_DIR_LIGHTS > 0\n\tstruct DirectionalLight {\n\t\tvec3 direction;\n\t\tvec3 color;\n\t};\n\tuniform DirectionalLight directionalLights[ NUM_DIR_LIGHTS ];\n\tvoid getDirectionalLightInfo( const in DirectionalLight directionalLight, const in GeometricContext geometry, out IncidentLight light ) {\n\t\tlight.color = directionalLight.color;\n\t\tlight.direction = directionalLight.direction;\n\t\tlight.visible = true;\n\t}\n#endif\n#if NUM_POINT_LIGHTS > 0\n\tstruct PointLight {\n\t\tvec3 position;\n\t\tvec3 color;\n\t\tfloat distance;\n\t\tfloat decay;\n\t};\n\tuniform PointLight pointLights[ NUM_POINT_LIGHTS ];\n\tvoid getPointLightInfo( const in PointLight pointLight, const in GeometricContext geometry, out IncidentLight light ) {\n\t\tvec3 lVector = pointLight.position - geometry.position;\n\t\tlight.direction = normalize( lVector );\n\t\tfloat lightDistance = length( lVector );\n\t\tlight.color = pointLight.color;\n\t\tlight.color *= getDistanceAttenuation( lightDistance, pointLight.distance, pointLight.decay );\n\t\tlight.visible = ( light.color != vec3( 0.0 ) );\n\t}\n#endif\n#if NUM_SPOT_LIGHTS > 0\n\tstruct SpotLight {\n\t\tvec3 position;\n\t\tvec3 direction;\n\t\tvec3 color;\n\t\tfloat distance;\n\t\tfloat decay;\n\t\tfloat coneCos;\n\t\tfloat penumbraCos;\n\t};\n\tuniform SpotLight spotLights[ NUM_SPOT_LIGHTS ];\n\tvoid getSpotLightInfo( const in SpotLight spotLight, const in GeometricContext geometry, out IncidentLight light ) {\n\t\tvec3 lVector = spotLight.position - geometry.position;\n\t\tlight.direction = normalize( lVector );\n\t\tfloat angleCos = dot( light.direction, spotLight.direction );\n\t\tfloat spotAttenuation = getSpotAttenuation( spotLight.coneCos, spotLight.penumbraCos, angleCos );\n\t\tif ( spotAttenuation > 0.0 ) {\n\t\t\tfloat lightDistance = length( lVector );\n\t\t\tlight.color = spotLight.color * spotAttenuation;\n\t\t\tlight.color *= getDistanceAttenuation( lightDistance, spotLight.distance, spotLight.decay );\n\t\t\tlight.visible = ( light.color != vec3( 0.0 ) );\n\t\t} else {\n\t\t\tlight.color = vec3( 0.0 );\n\t\t\tlight.visible = false;\n\t\t}\n\t}\n#endif\n#if NUM_RECT_AREA_LIGHTS > 0\n\tstruct RectAreaLight {\n\t\tvec3 color;\n\t\tvec3 position;\n\t\tvec3 halfWidth;\n\t\tvec3 halfHeight;\n\t};\n\tuniform sampler2D ltc_1;\tuniform sampler2D ltc_2;\n\tuniform RectAreaLight rectAreaLights[ NUM_RECT_AREA_LIGHTS ];\n#endif\n#if NUM_HEMI_LIGHTS > 0\n\tstruct HemisphereLight {\n\t\tvec3 direction;\n\t\tvec3 skyColor;\n\t\tvec3 groundColor;\n\t};\n\tuniform HemisphereLight hemisphereLights[ NUM_HEMI_LIGHTS ];\n\tvec3 getHemisphereLightIrradiance( const in HemisphereLight hemiLight, const in vec3 normal ) {\n\t\tfloat dotNL = dot( normal, hemiLight.direction );\n\t\tfloat hemiDiffuseWeight = 0.5 * dotNL + 0.5;\n\t\tvec3 irradiance = mix( hemiLight.groundColor, hemiLight.skyColor, hemiDiffuseWeight );\n\t\treturn irradiance;\n\t}\n#endif";
 
-	var envmap_physical_pars_fragment = "#if defined( USE_ENVMAP )\n\tvec3 getIBLIrradiance( const in vec3 normal ) {\n\t\t#if defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, worldNormal, 1.0 );\n\t\t\treturn PI * envMapColor.rgb * envMapIntensity;\n\t\t#else\n\t\t\treturn vec3( 0.0 );\n\t\t#endif\n\t}\n\tvec3 getIBLRadiance( const in vec3 viewDir, const in vec3 normal, const in float roughness ) {\n\t\t#if defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec3 reflectVec = reflect( - viewDir, normal );\n\t\t\treflectVec = normalize( mix( reflectVec, normal, roughness * roughness) );\n\t\t\treflectVec = inverseTransformDirection( reflectVec, viewMatrix );\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, reflectVec, roughness );\n\t\t\treturn envMapColor.rgb * envMapIntensity;\n\t\t#else\n\t\t\treturn vec3( 0.0 );\n\t\t#endif\n\t}\n#endif";
+	var envmap_physical_pars_fragment = "#if defined( USE_ENVMAP )\n\tvec3 getIBLIrradiance( const in vec3 normal ) {\n\t\t#if defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec3 worldNormal = inverseTransformDirection( normal, viewMatrix );\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, worldNormal, 1.0 );\n\t\t\tvec4 envMap2Color = textureCubeUV( envMap2, worldNormal, 1.0 );\n\t\t\tenvMapColor = mix(envMapColor, envMap2Color, envMapBlend);\n\t\t\treturn PI * envMapColor.rgb * envMapIntensity;\n\t\t#else\n\t\t\treturn vec3( 0.0 );\n\t\t#endif\n\t}\n\tvec3 getIBLRadiance( const in vec3 viewDir, const in vec3 normal, const in float roughness ) {\n\t\t#if defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec3 reflectVec = reflect( - viewDir, normal );\n\t\t\treflectVec = normalize( mix( reflectVec, normal, roughness * roughness) );\n\t\t\treflectVec = inverseTransformDirection( reflectVec, viewMatrix );\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, reflectVec, roughness );\n\t\t\tvec4 envMap2Color = textureCubeUV( envMap2, reflectVec, roughness );\n\t\t\tenvMapColor = mix(envMapColor, envMap2Color, envMapBlend);\n\t\t\treturn envMapColor.rgb * envMapIntensity;\n\t\t#else\n\t\t\treturn vec3( 0.0 );\n\t\t#endif\n\t}\n#endif";
 
 	var lights_toon_fragment = "ToonMaterial material;\nmaterial.diffuseColor = diffuseColor.rgb;";
 
@@ -13563,7 +13741,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	var lights_fragment_begin = "\nGeometricContext geometry;\ngeometry.position = - vViewPosition;\ngeometry.normal = normal;\ngeometry.viewDir = ( isOrthographic ) ? vec3( 0, 0, 1 ) : normalize( vViewPosition );\n#ifdef USE_CLEARCOAT\n\tgeometry.clearcoatNormal = clearcoatNormal;\n#endif\n#ifdef USE_IRIDESCENCE\n\tfloat dotNVi = saturate( dot( normal, geometry.viewDir ) );\n\tif ( material.iridescenceThickness == 0.0 ) {\n\t\tmaterial.iridescence = 0.0;\n\t} else {\n\t\tmaterial.iridescence = saturate( material.iridescence );\n\t}\n\tif ( material.iridescence > 0.0 ) {\n\t\tmaterial.iridescenceFresnel = evalIridescence( 1.0, material.iridescenceIOR, dotNVi, material.iridescenceThickness, material.specularColor );\n\t\tmaterial.iridescenceF0 = Schlick_to_F0( material.iridescenceFresnel, 1.0, dotNVi );\n\t}\n#endif\nIncidentLight directLight;\n#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )\n\tPointLight pointLight;\n\t#if defined( USE_SHADOWMAP ) && NUM_POINT_LIGHT_SHADOWS > 0\n\tPointLightShadow pointLightShadow;\n\t#endif\n\t#pragma unroll_loop_start\n\tfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\t\tpointLight = pointLights[ i ];\n\t\tgetPointLightInfo( pointLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_POINT_LIGHT_SHADOWS )\n\t\tpointLightShadow = pointLightShadows[ i ];\n\t\tdirectLight.color *= ( directLight.visible && receiveShadow ) ? getPointShadow( pointShadowMap[ i ], pointLightShadow.shadowMapSize, pointLightShadow.shadowBias, pointLightShadow.shadowRadius, vPointShadowCoord[ i ], pointLightShadow.shadowCameraNear, pointLightShadow.shadowCameraFar ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )\n\tSpotLight spotLight;\n\tvec4 spotColor;\n\tvec3 spotLightCoord;\n\tbool inSpotLightMap;\n\t#if defined( USE_SHADOWMAP ) && NUM_SPOT_LIGHT_SHADOWS > 0\n\tSpotLightShadow spotLightShadow;\n\t#endif\n\t#pragma unroll_loop_start\n\tfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\t\tspotLight = spotLights[ i ];\n\t\tgetSpotLightInfo( spotLight, geometry, directLight );\n\t\t#if ( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS_WITH_MAPS )\n\t\t#define SPOT_LIGHT_MAP_INDEX UNROLLED_LOOP_INDEX\n\t\t#elif ( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS )\n\t\t#define SPOT_LIGHT_MAP_INDEX NUM_SPOT_LIGHT_MAPS\n\t\t#else\n\t\t#define SPOT_LIGHT_MAP_INDEX ( UNROLLED_LOOP_INDEX - NUM_SPOT_LIGHT_SHADOWS + NUM_SPOT_LIGHT_SHADOWS_WITH_MAPS )\n\t\t#endif\n\t\t#if ( SPOT_LIGHT_MAP_INDEX < NUM_SPOT_LIGHT_MAPS )\n\t\t\tspotLightCoord = vSpotLightCoord[ i ].xyz / vSpotLightCoord[ i ].w;\n\t\t\tinSpotLightMap = all( lessThan( abs( spotLightCoord * 2. - 1. ), vec3( 1.0 ) ) );\n\t\t\tspotColor = texture2D( spotLightMap[ SPOT_LIGHT_MAP_INDEX ], spotLightCoord.xy );\n\t\t\tdirectLight.color = inSpotLightMap ? directLight.color * spotColor.rgb : directLight.color;\n\t\t#endif\n\t\t#undef SPOT_LIGHT_MAP_INDEX\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS )\n\t\tspotLightShadow = spotLightShadows[ i ];\n\t\tdirectLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( spotShadowMap[ i ], spotLightShadow.shadowMapSize, spotLightShadow.shadowBias, spotLightShadow.shadowRadius, vSpotLightCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )\n\tDirectionalLight directionalLight;\n\t#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0\n\tDirectionalLightShadow directionalLightShadow;\n\t#endif\n\t#pragma unroll_loop_start\n\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {\n\t\tdirectionalLight = directionalLights[ i ];\n\t\tgetDirectionalLightInfo( directionalLight, geometry, directLight );\n\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )\n\t\tdirectionalLightShadow = directionalLightShadows[ i ];\n\t\tdirectLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;\n\t\t#endif\n\t\tRE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_RECT_AREA_LIGHTS > 0 ) && defined( RE_Direct_RectArea )\n\tRectAreaLight rectAreaLight;\n\t#pragma unroll_loop_start\n\tfor ( int i = 0; i < NUM_RECT_AREA_LIGHTS; i ++ ) {\n\t\trectAreaLight = rectAreaLights[ i ];\n\t\tRE_Direct_RectArea( rectAreaLight, geometry, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if defined( RE_IndirectDiffuse )\n\tvec3 iblIrradiance = vec3( 0.0 );\n\tvec3 irradiance = getAmbientLightIrradiance( ambientLightColor );\n\tirradiance += getLightProbeIrradiance( lightProbe, geometry.normal );\n\t#if ( NUM_HEMI_LIGHTS > 0 )\n\t\t#pragma unroll_loop_start\n\t\tfor ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {\n\t\t\tirradiance += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry.normal );\n\t\t}\n\t\t#pragma unroll_loop_end\n\t#endif\n#endif\n#if defined( RE_IndirectSpecular )\n\tvec3 radiance = vec3( 0.0 );\n\tvec3 clearcoatRadiance = vec3( 0.0 );\n#endif";
 
-	var lights_fragment_maps = "#if defined( RE_IndirectDiffuse )\n\t#ifdef USE_LIGHTMAP\n\t\tvec4 lightMapTexel = texture2D( lightMap, vLightMapUv );\n\t\tvec3 lightMapIrradiance = lightMapTexel.rgb * lightMapIntensity;\n\t\tirradiance += lightMapIrradiance;\n\t#endif\n\t#if defined( USE_ENVMAP ) && defined( STANDARD ) && defined( ENVMAP_TYPE_CUBE_UV )\n\t\tiblIrradiance += getIBLIrradiance( geometry.normal );\n\t#endif\n#endif\n#if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )\n\tradiance += getIBLRadiance( geometry.viewDir, geometry.normal, material.roughness );\n\t#ifdef USE_CLEARCOAT\n\t\tclearcoatRadiance += getIBLRadiance( geometry.viewDir, geometry.clearcoatNormal, material.clearcoatRoughness );\n\t#endif\n#endif";
+	var lights_fragment_maps = "#if defined( RE_IndirectDiffuse )\n\t#ifdef USE_LIGHTMAP\n\t\tvec4 lightMapTexel = texture2D( lightMap, vLightMapUv );\n\t\tvec3 lightMapIrradiance = lightMapTexel.rgb * lightMapIntensity;\n\t\tirradiance += lightMapIrradiance;\n\t#endif\n\t#if defined( USE_ENVMAP ) && defined( STANDARD ) && defined( ENVMAP_TYPE_CUBE_UV ) && !defined(USE_LIGHTMAP)\n\t\tiblIrradiance += getIBLIrradiance( geometry.normal );\n\t#endif\n#endif\n#if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )\n\tradiance += getIBLRadiance( geometry.viewDir, geometry.normal, material.roughness );\n\t#ifdef USE_CLEARCOAT\n\t\tclearcoatRadiance += getIBLRadiance( geometry.viewDir, geometry.clearcoatNormal, material.clearcoatRoughness );\n\t#endif\n#endif";
 
 	var lights_fragment_end = "#if defined( RE_IndirectDiffuse )\n\tRE_IndirectDiffuse( irradiance, geometry, material, reflectedLight );\n#endif\n#if defined( RE_IndirectSpecular )\n\tRE_IndirectSpecular( radiance, iblIrradiance, clearcoatRadiance, geometry, material, reflectedLight );\n#endif";
 
@@ -13653,7 +13831,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	var tonemapping_fragment = "#if defined( TONE_MAPPING )\n\tgl_FragColor.rgb = toneMapping( gl_FragColor.rgb );\n#endif";
 
-	var tonemapping_pars_fragment = "#ifndef saturate\n#define saturate( a ) clamp( a, 0.0, 1.0 )\n#endif\nuniform float toneMappingExposure;\nvec3 LinearToneMapping( vec3 color ) {\n\treturn toneMappingExposure * color;\n}\nvec3 ReinhardToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\treturn saturate( color / ( vec3( 1.0 ) + color ) );\n}\nvec3 OptimizedCineonToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\tcolor = max( vec3( 0.0 ), color - 0.004 );\n\treturn pow( ( color * ( 6.2 * color + 0.5 ) ) / ( color * ( 6.2 * color + 1.7 ) + 0.06 ), vec3( 2.2 ) );\n}\nvec3 RRTAndODTFit( vec3 v ) {\n\tvec3 a = v * ( v + 0.0245786 ) - 0.000090537;\n\tvec3 b = v * ( 0.983729 * v + 0.4329510 ) + 0.238081;\n\treturn a / b;\n}\nvec3 ACESFilmicToneMapping( vec3 color ) {\n\tconst mat3 ACESInputMat = mat3(\n\t\tvec3( 0.59719, 0.07600, 0.02840 ),\t\tvec3( 0.35458, 0.90834, 0.13383 ),\n\t\tvec3( 0.04823, 0.01566, 0.83777 )\n\t);\n\tconst mat3 ACESOutputMat = mat3(\n\t\tvec3(  1.60475, -0.10208, -0.00327 ),\t\tvec3( -0.53108,  1.10813, -0.07276 ),\n\t\tvec3( -0.07367, -0.00605,  1.07602 )\n\t);\n\tcolor *= toneMappingExposure / 0.6;\n\tcolor = ACESInputMat * color;\n\tcolor = RRTAndODTFit( color );\n\tcolor = ACESOutputMat * color;\n\treturn saturate( color );\n}\nvec3 CustomToneMapping( vec3 color ) { return color; }";
+	var tonemapping_pars_fragment = "#ifndef saturate\n#define saturate( a ) clamp( a, 0.0, 1.0 )\n#endif\nuniform float toneMappingExposure;\nvec3 LinearToneMapping( vec3 color ) {\n\treturn toneMappingExposure * color;\n}\nvec3 ReinhardToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\treturn saturate( color / ( vec3( 1.0 ) + color ) );\n}\nvec3 OptimizedCineonToneMapping( vec3 color ) {\n\tcolor *= toneMappingExposure;\n\tcolor = max( vec3( 0.0 ), color - 0.004 );\n\treturn pow( ( color * ( 6.2 * color + 0.5 ) ) / ( color * ( 6.2 * color + 1.7 ) + 0.06 ), vec3( 2.2 ) );\n}\nvec3 RRTAndODTFit( vec3 v ) {\n\tvec3 a = v * ( v + 0.0245786 ) - 0.000090537;\n\tvec3 b = v * ( 0.983729 * v + 0.4329510 ) + 0.238081;\n\treturn a / b;\n}\nvec3 ACESFilmicToneMapping( vec3 color ) {\n\tconst mat3 ACESInputMat = mat3(\n\t\tvec3( 0.59719, 0.07600, 0.02840 ),\t\tvec3( 0.35458, 0.90834, 0.13383 ),\n\t\tvec3( 0.04823, 0.01566, 0.83777 )\n\t);\n\tconst mat3 ACESOutputMat = mat3(\n\t\tvec3(  1.60475, -0.10208, -0.00327 ),\t\tvec3( -0.53108,  1.10813, -0.07276 ),\n\t\tvec3( -0.07367, -0.00605,  1.07602 )\n\t);\n\tcolor *= toneMappingExposure / 0.6;\n\tcolor = ACESInputMat * color;\n\tcolor = RRTAndODTFit( color );\n\tcolor = ACESOutputMat * color;\n\treturn saturate( color );\n}\n#ifdef LUT_TONE_MAPPING\n\tprecision highp sampler3D;\n\tuniform sampler3D tonemappingLUT;\n\tvec3 LUTToneMapping( vec3 color ) {\n\t\tcolor *= toneMappingExposure;\n\t\tfloat lutSize = 32.0;\n\t\tfloat pixelWidth = 1.0 / lutSize;\n\t\tfloat halfPixelWidth = 0.5 / lutSize;\n\t\tvec3 uvw = vec3( halfPixelWidth ) + color.rgb * ( 1.0 - pixelWidth );\n\t\treturn texture( tonemappingLUT, uvw ).rgb;\n\t}\n#endif\nvec3 CustomToneMapping( vec3 color ) { return color; }";
 
 	var transmission_fragment = "#ifdef USE_TRANSMISSION\n\tmaterial.transmission = transmission;\n\tmaterial.transmissionAlpha = 1.0;\n\tmaterial.thickness = thickness;\n\tmaterial.attenuationDistance = attenuationDistance;\n\tmaterial.attenuationColor = attenuationColor;\n\t#ifdef USE_TRANSMISSIONMAP\n\t\tmaterial.transmission *= texture2D( transmissionMap, vTransmissionMapUv ).r;\n\t#endif\n\t#ifdef USE_THICKNESSMAP\n\t\tmaterial.thickness *= texture2D( thicknessMap, vThicknessMapUv ).g;\n\t#endif\n\tvec3 pos = vWorldPosition;\n\tvec3 v = normalize( cameraPosition - pos );\n\tvec3 n = inverseTransformDirection( normal, viewMatrix );\n\tvec4 transmission = getIBLVolumeRefraction(\n\t\tn, v, material.roughness, material.diffuseColor, material.specularColor, material.specularF90,\n\t\tpos, modelMatrix, viewMatrix, projectionMatrix, material.ior, material.thickness,\n\t\tmaterial.attenuationColor, material.attenuationDistance );\n\tmaterial.transmissionAlpha = mix( material.transmissionAlpha, transmission.a, material.transmission );\n\ttotalDiffuse = mix( totalDiffuse, transmission.rgb, material.transmission );\n#endif";
 
@@ -14171,7 +14349,13 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			uniforms: /*@__PURE__*/ mergeUniforms( [
 				UniformsLib.common,
-				UniformsLib.envmap,
+				( () => {
+
+					// TODO HACK don't include envMap uniform, it is currently handling directly in WebGLRenderer for ReflectionProbes support
+					const { envMap, ...rest } = UniformsLib.envmap; // eslint-disable-line no-unused-vars
+					return rest;
+
+				} )(),
 				UniformsLib.aomap,
 				UniformsLib.lightmap,
 				UniformsLib.emissivemap,
@@ -17327,7 +17511,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			const objectInfluences = object.morphTargetInfluences;
 
-			if ( capabilities.isWebGL2 === true ) {
+			if ( capabilities.isWebGL2 === true && false /* casuing issues, disable for now, also see WebGLProgram */ ) {
 
 				// instead of using attributes, the WebGL 2 code path encodes morph targets
 				// into an array of data textures. Each layer represents a single morph target.
@@ -20948,6 +21132,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			ambient: [ 0, 0, 0 ],
 			probe: [],
+			reflectionProbes: [],
 			directional: [],
 			directionalShadow: [],
 			directionalShadowMap: [],
@@ -20993,6 +21178,8 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			let numSpotMaps = 0;
 			let numSpotShadowsWithMaps = 0;
 
+			let numReflectionProbes = 0;
+
 			// ordering : [shadow casting + map texturing, map texturing, shadow casting, none ]
 			lights.sort( shadowCastingAndTexturingLightsFirst );
 
@@ -21022,6 +21209,10 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 						state.probe[ j ].addScaledVector( light.sh.coefficients[ j ], intensity );
 
 					}
+
+				} else if ( light.isReflectionProbe ) {
+
+					state.reflectionProbes[ numReflectionProbes ++ ] = light;
 
 				} else if ( light.isDirectionalLight ) {
 
@@ -21199,6 +21390,8 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			state.ambient[ 0 ] = r;
 			state.ambient[ 1 ] = g;
 			state.ambient[ 2 ] = b;
+
+			state.reflectionProbes.length = numReflectionProbes;
 
 			const hash = state.hash;
 
@@ -22861,11 +23054,27 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 		}
 
-		function compressedTexImage2D() {
+		function compressedTexImage2D( a, b, c, d, e, f, g, h, i, j ) {
 
 			try {
 
-				gl.compressedTexImage2D.apply( gl, arguments );
+				if ( h === undefined ) {
+
+					gl.compressedTexImage2D( a, b, c, d, e, f, g );
+
+				} else if ( i === undefined ) {
+
+					gl.compressedTexImage2D( a, b, c, d, e, f, g, h );
+
+				} else if ( j === undefined ) {
+
+					gl.compressedTexImage2D( a, b, c, d, e, f, g, h, i );
+
+				} else {
+
+					gl.compressedTexImage2D( a, b, c, d, e, f, g, h, i, j );
+
+				}
 
 			} catch ( error ) {
 
@@ -22973,11 +23182,19 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 		}
 
-		function texImage2D() {
+		function texImage2D( a, b, c, d, e, f, g, h, i ) {
 
 			try {
 
-				gl.texImage2D.apply( gl, arguments );
+				if ( g === undefined ) {
+
+					gl.texImage2D( a, b, c, d, e, f );
+
+				} else {
+
+					gl.texImage2D( a, b, c, d, e, f, g, h, i );
+
+				}
 
 			} catch ( error ) {
 
@@ -22987,11 +23204,19 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 		}
 
-		function texImage3D() {
+		function texImage3D( a, b, c, d, e, f, g, h, i, j, k ) {
 
 			try {
 
-				gl.texImage3D.apply( gl, arguments );
+				if ( k === undefined ) {
+
+					gl.texImage3D( a, b, c, d, e, f, g, h, i, j );
+
+				} else {
+
+					gl.texImage3D( a, b, c, d, e, f, g, h, i, j, k );
+
+				}
 
 			} catch ( error ) {
 
@@ -26699,7 +26924,9 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 	function WebGLMaterials( renderer, properties ) {
 
 		function refreshTransformUniform( map, uniform ) {
-
+	    if (!uniform) {
+	      return;
+	    }
 			if ( map.matrixAutoUpdate === true ) {
 
 				map.updateMatrix();
@@ -26908,7 +27135,12 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			if ( envMap ) {
 
-				uniforms.envMap.value = envMap;
+				// TODO HACK currently handling directly in WebGLRenderer only for MeshStandardMaterial for ReflectionProbes
+				if ( ! material.isMeshStandardMaterial ) {
+
+					uniforms.envMap.value = envMap;
+
+				}
 
 				uniforms.flipEnvMap.value = ( envMap.isCubeTexture && envMap.isRenderTargetTexture === false ) ? - 1 : 1;
 
@@ -41311,7 +41543,10 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			url = this.manager.resolveURL( url );
 
-			const cached = Cache.get( url );
+			const isRangeRequest = this.requestHeader.Range !== undefined;
+			const key = url + ( isRangeRequest ? `:${this.requestHeader.Range}` : '' );
+
+			const cached = Cache.get( key );
 
 			if ( cached !== undefined ) {
 
@@ -41331,9 +41566,9 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			// Check if request is duplicate
 
-			if ( loading[ url ] !== undefined ) {
+			if ( loading[ key ] !== undefined ) {
 
-				loading[ url ].push( {
+				loading[ key ].push( {
 
 					onLoad: onLoad,
 					onProgress: onProgress,
@@ -41346,9 +41581,9 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			}
 
 			// Initialise array for duplicate requests
-			loading[ url ] = [];
+			loading[ key ] = [];
 
-			loading[ url ].push( {
+			loading[ key ].push( {
 				onLoad: onLoad,
 				onProgress: onProgress,
 				onError: onError,
@@ -41369,7 +41604,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			fetch( req )
 				.then( response => {
 
-					if ( response.status === 200 || response.status === 0 ) {
+					if ( response.status === 200 || response.status === 206 || response.status === 0 ) {
 
 						// Some browsers return HTTP Status 0 when using non-http protocol
 						// e.g. 'file://' or 'data://'. Handle as success.
@@ -41377,6 +41612,12 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 						if ( response.status === 0 ) {
 
 							console.warn( 'THREE.FileLoader: HTTP Status 0 received.' );
+
+						}
+
+						if ( isRangeRequest && response.status === 200 ) {
+
+							throw new HttpError( `range request fetch for "${response.url}" responded with ${response.status}: ${response.statusText}`, response );
 
 						}
 
@@ -41388,7 +41629,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 						}
 
-						const callbacks = loading[ url ];
+						const callbacks = loading[ key ];
 						const reader = response.body.getReader();
 
 						// Nginx needs X-File-Size check
@@ -41496,10 +41737,10 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 					// Add to cache only on HTTP success, so that we do not cache
 					// error response bodies as proper responses to requests.
-					Cache.add( url, data );
+					Cache.add( key, data );
 
-					const callbacks = loading[ url ];
-					delete loading[ url ];
+					const callbacks = loading[ key ];
+					delete loading[ key ];
 
 					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
 
@@ -41513,7 +41754,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 					// Abort errors and other errors are handled the same
 
-					const callbacks = loading[ url ];
+					const callbacks = loading[ key ];
 
 					if ( callbacks === undefined ) {
 
@@ -41523,7 +41764,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 					}
 
-					delete loading[ url ];
+					delete loading[ key ];
 
 					for ( let i = 0, il = callbacks.length; i < il; i ++ ) {
 
@@ -44805,6 +45046,34 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	}
 
+	class ReflectionProbe extends Light {
+
+		constructor( box = new Box3(), texture ) {
+
+			super();
+
+			this.box = box;
+			this.texture = texture;
+
+		}
+
+		copy( source ) {
+
+			super.copy( source );
+
+			this.box.copy( source.box );
+			this.texture = source.texture;
+
+			return this;
+
+		}
+
+		// TODO fromJSON/toJSON
+
+	}
+
+	ReflectionProbe.prototype.isReflectionProbe = true;
+
 	const _eyeRight = /*@__PURE__*/ new Matrix4();
 	const _eyeLeft = /*@__PURE__*/ new Matrix4();
 	const _projectionMatrix = /*@__PURE__*/ new Matrix4();
@@ -45597,6 +45866,16 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			super.updateMatrixWorld( force );
 
+			let setInitial = false;
+
+			if ( ! this._lastPosition ) {
+
+				setInitial = true;
+				this._lastPosition = new Vector3();
+				this._lastOrientation = new Vector3();
+
+			}
+
 			if ( this.hasPlaybackControl === true && this.isPlaying === false ) return;
 
 			this.matrixWorld.decompose( _position, _quaternion, _scale );
@@ -45604,6 +45883,21 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			_orientation.set( 0, 0, 1 ).applyQuaternion( _quaternion );
 
 			const panner = this.panner;
+
+			// Only apply changes to the pannernode if position or orientation have changed.
+			if (
+				! setInitial &&
+				Math.abs( _position.x - this._lastPosition.x ) < Number.EPSILON &&
+				Math.abs( _position.y - this._lastPosition.y ) < Number.EPSILON &&
+				Math.abs( _position.z - this._lastPosition.z ) < Number.EPSILON &&
+				Math.abs( _orientation.x - this._lastOrientation.x ) < Number.EPSILON &&
+				Math.abs( _orientation.y - this._lastOrientation.y ) < Number.EPSILON &&
+				Math.abs( _orientation.z - this._lastOrientation.z ) < Number.EPSILON
+			) {
+
+				return;
+
+			}
 
 			if ( panner.positionX ) {
 
@@ -45624,6 +45918,14 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 				panner.setOrientation( _orientation.x, _orientation.y, _orientation.z );
 
 			}
+
+			this._lastPosition.x = _position.x;
+			this._lastPosition.y = _position.y;
+			this._lastPosition.z = _position.z;
+
+			this._lastOrientation.x = _orientation.x;
+			this._lastOrientation.y = _orientation.y;
+			this._lastOrientation.z = _orientation.z;
 
 		}
 
@@ -46334,6 +46636,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 			}
 
 			this.targetObject.matrixWorldNeedsUpdate = true;
+			this.targetObject.matrixNeedsUpdate = true;
 
 		}
 
@@ -46356,6 +46659,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			this.resolvedProperty[ this.propertyIndex ] = buffer[ offset ];
 			this.targetObject.matrixWorldNeedsUpdate = true;
+			this.targetObject.matrixNeedsUpdate = true;
 
 		}
 
@@ -46378,6 +46682,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			this.resolvedProperty.fromArray( buffer, offset );
 			this.targetObject.matrixWorldNeedsUpdate = true;
+			this.targetObject.matrixNeedsUpdate = true;
 
 		}
 
@@ -48831,11 +49136,9 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 	function intersectObject( object, raycaster, intersects, recursive ) {
 
-		if ( object.layers.test( raycaster.layers ) ) {
+		if ( ! object.visible ) return;
 
-			object.raycast( raycaster, intersects );
-
-		}
+		object.raycast( raycaster, intersects );
 
 		if ( recursive === true ) {
 
@@ -51201,6 +51504,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 	exports.KeepStencilOp = KeepStencilOp;
 	exports.KeyframeTrack = KeyframeTrack;
 	exports.LOD = LOD;
+	exports.LUTToneMapping = LUTToneMapping;
 	exports.LatheBufferGeometry = LatheBufferGeometry;
 	exports.LatheGeometry = LatheGeometry;
 	exports.Layers = Layers;
@@ -51348,6 +51652,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 	exports.RectAreaLight = RectAreaLight;
 	exports.RedFormat = RedFormat;
 	exports.RedIntegerFormat = RedIntegerFormat;
+	exports.ReflectionProbe = ReflectionProbe;
 	exports.ReinhardToneMapping = ReinhardToneMapping;
 	exports.RepeatWrapping = RepeatWrapping;
 	exports.ReplaceStencilOp = ReplaceStencilOp;
