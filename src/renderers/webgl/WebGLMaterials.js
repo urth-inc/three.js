@@ -4,6 +4,7 @@ import { getUnlitUniformColorSpace } from '../shaders/UniformsUtils.js';
 function WebGLMaterials( renderer, properties ) {
 
 	function refreshTransformUniform( map, uniform ) {
+    if (!uniform) return;
 
 		if ( map.matrixAutoUpdate === true ) {
 
