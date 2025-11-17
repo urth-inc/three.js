@@ -103,13 +103,11 @@ function intersect( object, raycaster, intersects, recursive ) {
 
 	let propagate = true;
 
-	if ( object.layers.test( raycaster.layers ) ) {
+	if ( ! object.visible ) return;
 
 		const result = object.raycast( raycaster, intersects );
 
 		if ( result === false ) propagate = false;
-
-	}
 
 	if ( propagate === true && recursive === true ) {
 

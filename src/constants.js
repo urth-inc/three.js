@@ -56,10 +56,13 @@ export const ReinhardToneMapping = 2;
 export const CineonToneMapping = 3;
 export const ACESFilmicToneMapping = 4;
 export const CustomToneMapping = 5;
+
 export const AgXToneMapping = 6;
 export const NeutralToneMapping = 7;
 export const AttachedBindMode = 'attached';
 export const DetachedBindMode = 'detached';
+
+export const LUTToneMapping = 6;
 
 export const UVMapping = 300;
 export const CubeReflectionMapping = 301;

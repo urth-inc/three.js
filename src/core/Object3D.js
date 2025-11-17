@@ -11,7 +11,9 @@ let _object3DId = 0;
 
 const _v1 = /*@__PURE__*/ new Vector3();
 const _q1 = /*@__PURE__*/ new Quaternion();
+const _q2 = /*@__PURE__*/ new Quaternion();
 const _m1 = /*@__PURE__*/ new Matrix4();
+const _m2 = /*@__PURE__*/ new Matrix4();
 const _target = /*@__PURE__*/ new Vector3();
 
 const _position = /*@__PURE__*/ new Vector3();
@@ -27,6 +29,14 @@ const _removedEvent = { type: 'removed' };
 
 const _childaddedEvent = { type: 'childadded', child: null };
 const _childremovedEvent = { type: 'childremoved', child: null };
+
+const _zeroPos = new Vector3( 0, 0, 0 );
+const _zeroQuat = new Quaternion();
+const _oneScale = new Vector3( 1, 1, 1 );
+const _identity = new Matrix4();
+_identity.identity();
+
+const _epsilon = 0.00000000001;
 
 class Object3D extends EventDispatcher {
 
@@ -105,11 +115,18 @@ class Object3D extends EventDispatcher {
 		this.matrixWorldAutoUpdate = Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE; // checked by the renderer
 		this.matrixWorldNeedsUpdate = false;
 
+		// [HUBS] Special flags to avoid unnecessary matrices update
+		this.matrixNeedsUpdate = false;
+		this.childrenNeedMatrixWorldUpdate = false;
+		this.matrixIsModified = false;
+		this.hasHadFirstMatrixUpdate = false;
+
 		this.layers = new Layers();
 		this.visible = true;
 
 		this.castShadow = false;
 		this.receiveShadow = false;
+		this.reflectionProbeMode = false;
 
 		this.frustumCulled = true;
 		this.renderOrder = 0;
@@ -135,6 +152,8 @@ class Object3D extends EventDispatcher {
 		this.matrix.premultiply( matrix );
 
 		this.matrix.decompose( this.position, this.quaternion, this.scale );
+
+		this._handleMatrixModification( this );
 
 	}
 
@@ -298,6 +317,8 @@ class Object3D extends EventDispatcher {
 
 		}
 
+		_q2.copy( this.quaternion );
+
 		this.quaternion.setFromRotationMatrix( _m1 );
 
 		if ( parent ) {
@@ -305,6 +326,16 @@ class Object3D extends EventDispatcher {
 			_m1.extractRotation( parent.matrixWorld );
 			_q1.setFromRotationMatrix( _m1 );
 			this.quaternion.premultiply( _q1.invert() );
+
+		}
+
+		if ( _q2.near( this.quaternion, _epsilon ) ) {
+
+			this.quaternion.copy( _q2 );
+
+		} else {
+
+			this.matrixNeedsUpdate = true;
 
 		}
 
@@ -336,6 +367,7 @@ class Object3D extends EventDispatcher {
 			object.removeFromParent();
 			object.parent = this;
 			this.children.push( object );
+			object.matrixWorldNeedsUpdate = true;
 
 			object.dispatchEvent( _addedEvent );
 
@@ -373,6 +405,13 @@ class Object3D extends EventDispatcher {
 
 			object.parent = null;
 			this.children.splice( index, 1 );
+
+			if ( object.hasHadFirstMatrixUpdate && ! object.matrixIsModified ) {
+
+				object.hasHadFirstMatrixUpdate = false;
+				object.matrixWorld = object.cachedMatrixWorld;
+
+			}
 
 			object.dispatchEvent( _removedEvent );
 
@@ -581,73 +620,60 @@ class Object3D extends EventDispatcher {
 
 		this.matrixWorldNeedsUpdate = true;
 
+		this._handleMatrixModification( this );
+
 	}
 
-	updateMatrixWorld( force ) {
+	// [HUBS] Computes this object's matrices and then the recursively computes the matrices of all the children.
+	//
+	// forceWorldUpdate - If true and the object is visible, will force the world matrix to be updated for
+	// this node and all of its children.
+	//
+	// includeInvisible - If true, does not ignore non-visible objects.
+	updateMatrixWorld( forceWorldUpdate, includeInvisible ) {
 
-		if ( this.matrixAutoUpdate ) this.updateMatrix();
+		if ( ! this.visible && ! includeInvisible ) {
 
-		if ( this.matrixWorldNeedsUpdate || force ) {
+			if ( forceWorldUpdate ) {
 
-			if ( this.parent === null ) {
-
-				this.matrixWorld.copy( this.matrix );
-
-			} else {
-
-				this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+				this.matrixWorldNeedsUpdate = true;
 
 			}
 
-			this.matrixWorldNeedsUpdate = false;
-
-			force = true;
+			return;
 
 		}
 
-		// update children
+		// Do not recurse upwards, since this is recursing downwards
+		this.updateMatrices( false, forceWorldUpdate, true );
 
 		const children = this.children;
+		const forceChildrenWorldUpdate = this.childrenNeedMatrixWorldUpdate || forceWorldUpdate;
 
 		for ( let i = 0, l = children.length; i < l; i ++ ) {
 
 			const child = children[ i ];
 
-			if ( child.matrixWorldAutoUpdate === true || force === true ) {
+			if ( child.matrixWorldAutoUpdate === true ) {
 
-				child.updateMatrixWorld( force );
+				child.updateMatrixWorld( forceChildrenWorldUpdate, includeInvisible );
 
 			}
 
 		}
 
+		this.childrenNeedMatrixWorldUpdate = false;
+
 	}
 
+
+	// [HUBS] Updates this function to use updateMatrices(). In general our code should prefer calling updateMatrices() directly,
+	// patching this for compatibility upstream, namely with Box3.expandToObject and Object3D.attach
 	updateWorldMatrix( updateParents, updateChildren ) {
 
-		const parent = this.parent;
+		this.updateMatrices( false, false, ! updateParents );
 
-		if ( updateParents === true && parent !== null && parent.matrixWorldAutoUpdate === true ) {
-
-			parent.updateWorldMatrix( true, false );
-
-		}
-
-		if ( this.matrixAutoUpdate ) this.updateMatrix();
-
-		if ( this.parent === null ) {
-
-			this.matrixWorld.copy( this.matrix );
-
-		} else {
-
-			this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
-
-		}
-
-		// update children
-
-		if ( updateChildren === true ) {
+		if ( updateChildren ) {
 
 			const children = this.children;
 
@@ -657,11 +683,109 @@ class Object3D extends EventDispatcher {
 
 				if ( child.matrixWorldAutoUpdate === true ) {
 
-					child.updateWorldMatrix( false, true );
+					child.updateMatrixWorld( false, false );
 
 				}
 
 			}
+
+			this.childrenNeedMatrixWorldUpdate = false;
+
+		}
+
+	}
+
+	// [HUBS] By the end of this function this.matrix reflects the updated local matrix
+	// and this.matrixWorld reflects the updated world matrix, taking into account
+	// parent matrices.
+	//
+	// forceLocalUpdate - Forces the local matrix to be updated regardless of if it has not
+	// been marked dirty.
+	//
+	// forceWorldUpdate - Forces the world matrix to be updated regardless of if the local matrix
+	// has been updated since the last update.
+	//
+	// skipParents - unless true, all parent matricies are updated before updating this object's
+	// local and world matrix.
+	//
+	updateMatrices( forceLocalUpdate, forceWorldUpdate, skipParents ) {
+
+		if ( ! this.hasHadFirstMatrixUpdate ) {
+
+			if (
+				! this.position.equals( _zeroPos ) ||
+					! this.quaternion.equals( _zeroQuat ) ||
+					! this.scale.equals( _oneScale ) ||
+					! this.matrix.equals( _identity )
+			) {
+
+				// Only update the matrix the first time if its non-identity, this way
+				// this.matrixIsModified will remain false until the default
+				// identity matrix is updated.
+				this.updateMatrix();
+
+			}
+
+			this.hasHadFirstMatrixUpdate = true;
+			this.matrixWorldNeedsUpdate = true;
+			this.cachedMatrixWorld = this.matrixWorld;
+
+		} else if ( this.matrixNeedsUpdate || this.matrixAutoUpdate || forceLocalUpdate ) {
+
+			// updateMatrix() sets matrixWorldNeedsUpdate = true
+			this.updateMatrix();
+			this.matrixNeedsUpdate = false;
+
+		}
+
+		if ( ! skipParents && this.parent ) {
+
+			this.parent.updateMatrices( false, forceWorldUpdate, false );
+			this.matrixWorldNeedsUpdate = this.matrixWorldNeedsUpdate || this.parent.childrenNeedMatrixWorldUpdate;
+
+		}
+
+		if ( this.matrixWorldNeedsUpdate || forceWorldUpdate ) {
+
+			_m2.copy( this.matrixWorld );
+
+			if ( this.parent === null ) {
+
+				this.matrixWorld.copy( this.matrix );
+
+			} else {
+
+				// If the matrix is unmodified, it is the identity matrix,
+				// and hence we can use the parent's world matrix directly.
+				//
+				// Note this assumes all callers will either not pass skipParents=true
+				// *or* will update the parent themselves beforehand as is done in
+				// updateMatrixWorld.
+				if ( ! this.matrixIsModified ) {
+
+					this.matrixWorld = this.parent.matrixWorld;
+
+				} else {
+
+					// Once matrixIsModified === true, this.matrixWorld has been updated to be a local
+					// copy, not a reference to this.parent.matrixWorld (see updateMatrix/applyMatrix)
+					this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
+
+				}
+
+			}
+
+			if ( _m2.near( this.matrixWorld, _epsilon ) ) {
+
+				this.matrixWorld.copy( _m2 );
+
+			} else {
+
+				this.childrenNeedMatrixWorldUpdate = true;
+
+			}
+
+			this.matrixWorldNeedsUpdate = false;
 
 		}
 
@@ -1012,6 +1136,23 @@ class Object3D extends EventDispatcher {
 		}
 
 		return this;
+
+	}
+
+	_handleMatrixModification() {
+
+		if ( ! this.matrixIsModified ) {
+
+			this.matrixIsModified = true;
+
+			if ( this.cachedMatrixWorld ) {
+
+				this.cachedMatrixWorld.copy( this.matrixWorld );
+				this.matrixWorld = this.cachedMatrixWorld;
+
+			}
+
+		}
 
 	}
 
