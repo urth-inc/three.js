@@ -4255,7 +4255,48 @@ class GLTFParser {
 
 			parser.associations.get( node ).nodes = nodeIndex;
 
-			return node;
+			if ( nodeDef.skin === undefined ) return node;
+
+			return parser.getDependency( 'skin', nodeDef.skin ).then( function ( skeleton ) {
+
+				// This full traverse should be fine because
+				// child glTF nodes have not been added to this node yet.
+				node.traverse( function ( mesh ) {
+
+					if ( ! mesh.isSkinnedMesh ) return;
+
+					mesh.bind( skeleton, _identityMatrix );
+
+				} );
+
+				return node;
+
+			} );
+
+		} ).then( function ( node ) {
+
+			if ( nodeDef.children === undefined ) return node;
+
+			const pending = [];
+			const childrenDef = nodeDef.children;
+
+			for ( let i = 0, il = childrenDef.length; i < il; i ++ ) {
+
+				pending.push( parser.getDependency( 'node', childrenDef[ i ] ) );
+
+			}
+
+			return Promise.all( pending ).then( function ( children ) {
+
+				for ( let i = 0, il = children.length; i < il; i ++ ) {
+
+					node.add( children[ i ] );
+
+				}
+
+				return node;
+
+			} );
 
 		} );
 
