@@ -17511,7 +17511,7 @@ console.warn( 'Scripts "build/three.js" and "build/three.min.js" are deprecated 
 
 			const objectInfluences = object.morphTargetInfluences;
 
-			if ( capabilities.isWebGL2 === true && false /* casuing issues, disable for now, also see WebGLProgram */ ) {
+			if ( capabilities.isWebGL2 === true ) {
 
 				// instead of using attributes, the WebGL 2 code path encodes morph targets
 				// into an array of data textures. Each layer represents a single morph target.
