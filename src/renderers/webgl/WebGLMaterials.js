@@ -5,6 +5,7 @@ function WebGLMaterials( renderer, properties ) {
 
 	function refreshTransformUniform( map, uniform ) {
 
+    if (!uniform) return;
 		if ( map.matrixAutoUpdate === true ) {
 
 			map.updateMatrix();
