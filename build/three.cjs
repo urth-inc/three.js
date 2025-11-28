@@ -27820,12 +27820,7 @@ function WebGLMaterials( renderer, properties ) {
 
 		if ( envMap ) {
 
-			// TODO HACK currently handling directly in WebGLRenderer only for MeshStandardMaterial for ReflectionProbes
-			if ( ! material.isMeshStandardMaterial ) {
-
-				uniforms.envMap.value = envMap;
-
-			}
+			uniforms.envMap.value = envMap;
 
 			_e1.copy( envMapRotation );
 
