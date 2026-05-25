@@ -49176,7 +49176,6 @@ class PropertyBinding {
 		}
 
 		this.targetObject.matrixWorldNeedsUpdate = true;
-		this.targetObject.matrixNeedsUpdate = true;
 
 	}
 
@@ -49199,7 +49198,6 @@ class PropertyBinding {
 
 		this.resolvedProperty[ this.propertyIndex ] = buffer[ offset ];
 		this.targetObject.matrixWorldNeedsUpdate = true;
-		this.targetObject.matrixNeedsUpdate = true;
 
 	}
 
@@ -49222,7 +49220,6 @@ class PropertyBinding {
 
 		this.resolvedProperty.fromArray( buffer, offset );
 		this.targetObject.matrixWorldNeedsUpdate = true;
-		this.targetObject.matrixNeedsUpdate = true;
 
 	}
 
