@@ -328,15 +328,15 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		if ( _q2.near( this.quaternion, _epsilon ) ) {
+		//if ( _q2.near( this.quaternion, _epsilon ) ) {
 
-			this.quaternion.copy( _q2 );
+		//	this.quaternion.copy( _q2 );
 
-		} else {
+		//} else {
 
 			this.matrixNeedsUpdate = true;
 
-		}
+		//}
 
 	}
 
@@ -774,15 +774,15 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			if ( _m2.near( this.matrixWorld, _epsilon ) ) {
+			// if ( _m2.near( this.matrixWorld, _epsilon ) ) {
 
-				this.matrixWorld.copy( _m2 );
+			// 	this.matrixWorld.copy( _m2 );
 
-			} else {
+			// } else {
 
-				this.childrenNeedMatrixWorldUpdate = true;
+this.childrenNeedMatrixWorldUpdate = true;
 
-			}
+			// }
 
 			this.matrixWorldNeedsUpdate = false;
 
