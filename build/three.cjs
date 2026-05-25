@@ -23603,27 +23603,11 @@ function WebGLState( gl ) {
 
 	}
 
-	function compressedTexImage2D( a, b, c, d, e, f, g, h, i, j ) {
+	function compressedTexImage2D() {
 
 		try {
 
-			if ( h === undefined ) {
-
-				gl.compressedTexImage2D( a, b, c, d, e, f, g );
-
-			} else if ( i === undefined ) {
-
-				gl.compressedTexImage2D( a, b, c, d, e, f, g, h );
-
-			} else if ( j === undefined ) {
-
-				gl.compressedTexImage2D( a, b, c, d, e, f, g, h, i );
-
-			} else {
-
-				gl.compressedTexImage2D( a, b, c, d, e, f, g, h, i, j );
-
-			}
+			gl.compressedTexImage2D.apply( gl, arguments );
 
 		} catch ( error ) {
 
@@ -23731,19 +23715,11 @@ function WebGLState( gl ) {
 
 	}
 
-	function texImage2D( a, b, c, d, e, f, g, h, i ) {
+	function texImage2D() {
 
 		try {
 
-			if ( g === undefined ) {
-
-				gl.texImage2D( a, b, c, d, e, f );
-
-			} else {
-
-				gl.texImage2D( a, b, c, d, e, f, g, h, i );
-
-			}
+			gl.texImage2D.apply( gl, arguments );
 
 		} catch ( error ) {
 
@@ -23753,19 +23729,11 @@ function WebGLState( gl ) {
 
 	}
 
-	function texImage3D( a, b, c, d, e, f, g, h, i, j, k ) {
+	function texImage3D() {
 
 		try {
 
-			if ( k === undefined ) {
-
-				gl.texImage3D( a, b, c, d, e, f, g, h, i, j );
-
-			} else {
-
-				gl.texImage3D( a, b, c, d, e, f, g, h, i, j, k );
-
-			}
+			gl.texImage3D.apply( gl, arguments );
 
 		} catch ( error ) {
 
