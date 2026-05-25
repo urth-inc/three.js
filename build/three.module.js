@@ -3810,16 +3810,6 @@ class Quaternion {
 
 	}
 
-	// [HUBS] Similar to equals() but allows the diff under eps
-	near( quaternion, eps = Number.EPSILON ) {
-
-		return ( Math.abs( quaternion._x - this._x ) < eps ) &&
-			( Math.abs( quaternion._y - this._y ) < eps ) &&
-			( Math.abs( quaternion._z - this._z ) < eps ) &&
-			( Math.abs( quaternion._w - this._w ) < eps );
-
-	}
-
 	fromArray( array, offset = 0 ) {
 
 		this._x = array[ offset ];
@@ -4532,15 +4522,6 @@ class Vector3 {
 	equals( v ) {
 
 		return ( ( v.x === this.x ) && ( v.y === this.y ) && ( v.z === this.z ) );
-
-	}
-
-	// [HUBS] Similar to equals() but allows the diff under eps
-	near( v, eps = Number.EPSILON ) {
-
-		return ( Math.abs( v.x - this.x ) < eps ) &&
-			( Math.abs( v.y - this.y ) < eps ) &&
-			( Math.abs( v.z - this.z ) < eps );
 
 	}
 
@@ -6736,22 +6717,6 @@ class Matrix4 {
 
 	}
 
-	// [HUBS] Similar to equals() but allow the diff under eps.
-	near( matrix, eps = Number.EPSILON ) {
-
-		const te = this.elements;
-		const me = matrix.elements;
-
-		for ( let i = 0; i < 16; i ++ ) {
-
-			if ( Math.abs( te[ i ] - me[ i ] ) >= eps ) return false;
-
-		}
-
-		return true;
-
-	}
-
 	fromArray( array, offset = 0 ) {
 
 		for ( let i = 0; i < 16; i ++ ) {
@@ -7199,8 +7164,6 @@ const _oneScale = new Vector3( 1, 1, 1 );
 const _identity$1 = new Matrix4();
 _identity$1.identity();
 
-const _epsilon = 0.00000000001;
-
 class Object3D extends EventDispatcher {
 
 	constructor() {
@@ -7491,15 +7454,15 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		if ( _q2.near( this.quaternion, _epsilon ) ) {
+		//if ( _q2.near( this.quaternion, _epsilon ) ) {
 
-			this.quaternion.copy( _q2 );
+		//	this.quaternion.copy( _q2 );
 
-		} else {
+		//} else {
 
 			this.matrixNeedsUpdate = true;
 
-		}
+		//}
 
 	}
 
@@ -7937,15 +7900,15 @@ class Object3D extends EventDispatcher {
 
 			}
 
-			if ( _m2.near( this.matrixWorld, _epsilon ) ) {
+			// if ( _m2.near( this.matrixWorld, _epsilon ) ) {
 
-				this.matrixWorld.copy( _m2 );
+			// 	this.matrixWorld.copy( _m2 );
 
-			} else {
+			// } else {
 
-				this.childrenNeedMatrixWorldUpdate = true;
+this.childrenNeedMatrixWorldUpdate = true;
 
-			}
+			// }
 
 			this.matrixWorldNeedsUpdate = false;
 
